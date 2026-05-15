@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Irish climbing weather — find where conditions are dry and climbable across Ireland's crags.">
+  <meta name="theme-color" content="#2d7a2d">
+  <title>Irish Climbing Weather</title>
+  <style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green-bg: #e8f5e9;
+  --green-fg: #1b5e20;
+  --green-mid: #2d7a2d;
+  --amber-bg: #fff8e1;
+  --amber-fg: #7a4800;
+  --amber-mid: #b8860b;
+  --red-bg: #ffebee;
+  --red-fg: #7f0000;
+  --red-mid: #c0392b;
+  --grey-bg: #f5f5f5;
+  --grey-mid: #9e9e9e;
+  --text: #1a1a1a;
+  --muted: #666;
+  --border: #e0e0e0;
+  --font: system-ui, -apple-system, sans-serif;
+  --radius: 6px;
+}
+
+html { font-size: 16px; }
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; font-family: var(--font); }
+
+/* ===== Layout ===== */
+#warnings-banner { width: 100%; }
+
+main {
+  flex: 1;
+  padding: 0 1rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.footer-attribution a { color: var(--muted); }
+
+.freshness {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#freshness-time { font-weight: 600; }
+#freshness-time.stale { color: var(--amber-mid); }
+
+#refresh-footer-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  font-size: 1rem;
+  color: var(--muted);
+}
+#refresh-footer-btn:hover { color: var(--text); }
+
+/* ===== Warnings Banner ===== */
+.warning-banner {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-bottom: 2px solid transparent;
+}
+.warning-yellow { background: #fff9c4; border-color: #f9a825; }
+.warning-orange { background: #ffe0b2; border-color: #e65100; font-size: 1.05rem; }
+.warning-red    { background: #ffcdd2; border-color: #b71c1c; font-size: 1.1rem; font-weight: 600; }
+.warning-banner small { color: var(--muted); font-size: 0.8rem; }
+
+/* ===== Score colours ===== */
+.score-green { background-color: var(--green-bg); color: var(--green-fg); }
+.score-amber { background-color: var(--amber-bg); color: var(--amber-fg); }
+.score-red   { background-color: var(--red-bg);   color: var(--red-fg); }
+.score-error { background-color: var(--grey-bg);  color: var(--muted); }
+
+.score-pill {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* ===== Loading state ===== */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.loading {
+  background-color: var(--grey-bg);
+  color: transparent;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.score-fade { transition: background-color 0.3s ease, color 0.3s ease; }
+
+/* ===== Overview page ===== */
+.overview-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.overview-controls h1 { font-size: 1.4rem; }
+
+.control-buttons { display: flex; gap: 0.5rem; }
+.control-buttons button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 0.85rem;
+}
+.control-buttons button:hover { background: var(--grey-bg); }
+
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 0.5rem;
+}
+
+.overview-table {
+  border-collapse: collapse;
+  min-width: 600px;
+  width: 100%;
+}
+
+.overview-table th, .overview-table td {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.overview-table thead th {
+  background: var(--grey-bg);
+  font-weight: 600;
+  text-align: center;
+}
+
+.loc-col {
+  min-width: 140px;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+  text-align: left !important;
+}
+
+.loc-name-cell {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.loc-name-cell a { color: var(--text); font-weight: 500; }
+.loc-name-cell a:hover { text-decoration: underline; }
+
+.score-cell {
+  text-align: center;
+  min-width: 80px;
+  vertical-align: middle;
+}
+
+.cell-precip { display: block; font-size: 0.75rem; font-weight: 600; }
+.cell-icon { display: block; font-size: 1rem; line-height: 1.2; }
+
+.group-header td {
+  background: var(--grey-bg);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 0.35rem 0.6rem;
+}
+
+.pinned-header td { background: #fffde7; color: #7a6000; }
+
+/* ===== Favourite star ===== */
+.fav-star {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--border);
+  padding: 0;
+  line-height: 1;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+.fav-star.active { color: #f59e0b; }
+.fav-star:hover { color: #f59e0b; }
+
+/* ===== Detail page ===== */
+.back-link {
+  display: inline-block;
+  margin: 1rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.back-link:hover { color: var(--text); text-decoration: none; }
+
+.detail-header { padding-top: 0.5rem; }
+
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0;
+}
+
+.detail-title-row h1 { font-size: 1.6rem; }
+#detail-fav-btn { font-size: 1.4rem; }
+
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.detail-notes {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.detail-section {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.detail-section h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+/* Observations */
+.obs-score { margin-bottom: 0.5rem; }
+.obs-desc { font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--muted); }
+.obs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+.obs-item { display: flex; flex-direction: column; gap: 0.15rem; }
+.obs-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.obs-station-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.75rem; }
+
+/* Daylight */
+.daylight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+.daylight-grid > div { display: flex; flex-direction: column; gap: 0.15rem; }
+
+/* Hourly */
+.hourly-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.hourly-table { border-collapse: collapse; min-width: 560px; width: 100%; font-size: 0.82rem; }
+.hourly-table th, .hourly-table td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.hourly-table thead th { background: var(--grey-bg); font-weight: 600; }
+.hour-time { font-weight: 600; white-space: nowrap; }
+.score-row.score-green td { background: var(--green-bg); }
+.score-row.score-amber td { background: var(--amber-bg); }
+.score-row.score-red   td { background: var(--red-bg); }
+.exposure-sheltered { color: var(--green-fg); font-weight: 600; }
+.exposure-exposed   { color: var(--red-fg); font-weight: 600; }
+.exposure-partial   { color: var(--amber-fg); }
+
+/* Daily */
+.daily-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.daily-table th, .daily-table td {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.daily-table thead th { background: var(--grey-bg); font-weight: 600; }
+
+/* Model comparison */
+.model-note { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.5rem; }
+.model-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+.model-table th, .model-table td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.model-table thead th { background: var(--grey-bg); font-weight: 600; }
+.model-agree    { color: var(--green-fg); font-weight: 600; }
+.model-disagree { color: var(--amber-fg); font-weight: 600; }
+.model-both-rain { color: var(--red-fg); font-weight: 600; }
+
+/* Drying estimate */
+.drying-estimate { margin-bottom: 0.75rem; font-size: 1rem; }
+.drying-note { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.75rem; }
+.precip-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.precip-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 100%;
+}
+.precip-bar {
+  width: 10px;
+  background: #90caf9;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+.bar-time { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
+
+/* About page */
+.about-page { padding: 1rem 0 2rem; max-width: 680px; }
+.about-page h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+.about-page h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+.about-page p  { margin-bottom: 0.5rem; font-size: 0.9rem; line-height: 1.5; }
+.about-page ul { padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.6; }
+.about-page a  { color: #1a73e8; text-decoration: underline; }
+
+/* Error / muted states */
+.error-state { color: var(--muted); padding: 1rem 0; font-size: 0.9rem; }
+.muted { color: var(--muted); }
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(1rem);
+  background: #333;
+  color: #fff;
+  padding: 0.5rem 1.2rem;
+  border-radius: 2rem;
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 9999;
+  white-space: nowrap;
+}
+#toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.wind-arrow { display: inline-block; }
+
+@media (max-width: 480px) {
+  .overview-controls h1 { font-size: 1.1rem; }
+  .detail-title-row h1 { font-size: 1.3rem; }
+  .control-buttons button { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
+}
+  </style>
+</head>
+<body>
+  <div id="warnings-banner" role="alert" aria-live="polite"></div>
+  <main>
+    <div id="app">
+      <p style="padding:2rem;color:#666">Loading…</p>
+    </div>
+  </main>
+  <footer>
+    <span class="footer-attribution">
+      Data: <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> ·
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+      <a href="https://www.met.ie" target="_blank" rel="noopener">Met Éireann</a> ·
+      <a href="#/about">About &amp; Attribution</a>
+    </span>
+    <span class="freshness">
+      Data last loaded: <span id="freshness-time">—</span>
+      <button id="refresh-footer-btn" title="Force refresh all data" aria-label="Refresh data">↻</button>
+    </span>
+  </footer>
+
+<script>
+'use strict';
+
+// ===== LOCATIONS DATA (inlined) =====
+const LOCATIONS_DATA = [
+  {"id":"dalkey-quarry","name":"Dalkey Quarry","region":"Leinster","lat":53.2712,"lon":-6.1025,"elevation_m":90,"aspect":"SE","nearest_station":"Dublin","county":"Dublin","rock_type":"granite","notes":"Quick drying due to south-east aspect and urban heat."},
+  {"id":"glendalough","name":"Glendalough","region":"Leinster","lat":53.0108,"lon":-6.3288,"elevation_m":380,"aspect":"S","nearest_station":"Casement","county":"Wicklow","rock_type":"mica-schist","notes":"Valley crags. Upper cliffs dry faster. Can be seepy after heavy rain."},
+  {"id":"luggala","name":"Luggala","region":"Leinster","lat":53.0833,"lon":-6.2833,"elevation_m":550,"aspect":"N","nearest_station":"Casement","county":"Wicklow","rock_type":"granite","notes":"North-facing. Often damp; needs a prolonged dry spell. Stunning setting."},
+  {"id":"great-sugar-loaf","name":"Great Sugar Loaf","region":"Leinster","lat":53.1355,"lon":-6.1437,"elevation_m":501,"aspect":"NE","nearest_station":"Casement","county":"Wicklow","rock_type":"quartzite","notes":"Quartzite dries quickly. Exposed to north-east winds."},
+  {"id":"bray-head","name":"Bray Head","region":"Leinster","lat":53.1908,"lon":-6.0894,"elevation_m":150,"aspect":"E","nearest_station":"Dublin","county":"Wicklow","rock_type":"quartzite","notes":"Coastal crag. East-facing, gets morning sun. Check tides for lower tiers."},
+  {"id":"lough-bray","name":"Lough Bray","region":"Leinster","lat":53.1667,"lon":-6.2833,"elevation_m":490,"aspect":"NE","nearest_station":"Casement","county":"Wicklow","rock_type":"granite","notes":"Upper and Lower crag. North-east facing. Often wet; needs good dry spell."},
+  {"id":"portrane","name":"Portrane","region":"Leinster","lat":53.5000,"lon":-6.1167,"elevation_m":10,"aspect":"E","nearest_station":"Dublin","county":"Dublin","rock_type":"limestone","notes":"Low coastal limestone. Tidal cave climbing. Check tide tables."},
+  {"id":"fair-head","name":"Fair Head","region":"Ulster","lat":55.2333,"lon":-6.1500,"elevation_m":160,"aspect":"N","nearest_station":"Malin Head","county":"Antrim","rock_type":"dolerite","notes":"Dramatic basalt columns. North-facing and coastal; can be very exposed."},
+  {"id":"binnian","name":"Binnian","region":"Ulster","lat":54.1167,"lon":-5.9833,"elevation_m":680,"aspect":"NW","nearest_station":"Casement","county":"Down","rock_type":"granite","notes":"Mournes granite. High altitude; carry extra layers."},
+  {"id":"malinbeg","name":"Malinbeg","region":"Ulster","lat":54.6667,"lon":-8.8333,"elevation_m":40,"aspect":"W","nearest_station":"Finner","county":"Donegal","rock_type":"quartzite","notes":"Remote sea cliffs. Quartzite dries quickly. Check Atlantic swell."},
+  {"id":"muckross-head","name":"Muckross Head","region":"Ulster","lat":54.6167,"lon":-8.5500,"elevation_m":30,"aspect":"SW","nearest_station":"Finner","county":"Donegal","rock_type":"quartzite","notes":"Excellent quartzite sea cliffs. Sheltered from north by the headland."},
+  {"id":"slieve-league","name":"Slieve League","region":"Ulster","lat":54.6417,"lon":-8.6917,"elevation_m":595,"aspect":"NW","nearest_station":"Finner","county":"Donegal","rock_type":"quartzite","notes":"High sea cliffs, highest accessible sea cliffs in Europe. Very exposed."},
+  {"id":"donegal-main-wall","name":"Donegal Main Wall","region":"Ulster","lat":54.9000,"lon":-8.4500,"elevation_m":50,"aspect":"N","nearest_station":"Malin Head","county":"Donegal","rock_type":"quartzite","notes":"North-facing quartzite. Slow to dry. Accessible from road."},
+  {"id":"owey-island","name":"Owey Island","region":"Ulster","lat":55.0500,"lon":-8.4333,"elevation_m":60,"aspect":"W","nearest_station":"Malin Head","county":"Donegal","rock_type":"granite","notes":"Island crag, boat access only. Granite. Atlantic exposure. Remote adventure."},
+  {"id":"ailladie","name":"Ailladie","region":"Connacht","lat":53.1417,"lon":-9.2500,"elevation_m":30,"aspect":"W","nearest_station":"Mace Head","county":"Clare","rock_type":"limestone","notes":"Classic Burren sea cliff. West-facing Atlantic exposure. Limestone dries slowly."},
+  {"id":"fanore","name":"The Burren (Fanore)","region":"Connacht","lat":53.1167,"lon":-9.2833,"elevation_m":60,"aspect":"W","nearest_station":"Mace Head","county":"Clare","rock_type":"limestone","notes":"Burren limestone. Karstified surface drains quickly but seeps persist."},
+  {"id":"achill-head","name":"Achill Head","region":"Connacht","lat":53.9833,"lon":-10.2167,"elevation_m":80,"aspect":"NW","nearest_station":"Belmullet","county":"Mayo","rock_type":"quartzite","notes":"Remote Atlantic sea cliffs. Quartzite. Very exposed to westerly swell and wind."},
+  {"id":"croagh-patrick","name":"Croagh Patrick (Corranabinnia)","region":"Connacht","lat":53.7606,"lon":-9.6594,"elevation_m":650,"aspect":"S","nearest_station":"Knock","county":"Mayo","rock_type":"quartzite","notes":"High-altitude quartzite. South-facing, dries well. Very exposed at altitude."},
+  {"id":"gap-of-dunloe","name":"Gap of Dunloe","region":"Munster","lat":52.0167,"lon":-9.6333,"elevation_m":250,"aspect":"E","nearest_station":"Valentia","county":"Kerry","rock_type":"sandstone","notes":"Sandstone. East-facing, gets morning sun. Often sheltered from SW winds."},
+  {"id":"glencar","name":"Glencar","region":"Munster","lat":52.0417,"lon":-9.7833,"elevation_m":400,"aspect":"SE","nearest_station":"Valentia","county":"Kerry","rock_type":"sandstone","notes":"Kerry sandstone. Excellent friction. Needs several dry days after rain."}
+];
+
+// ===== SCORING =====
+const ROCK_TYPE_DRYING_MULTIPLIER = {
+  granite: 1.0, quartzite: 1.0, 'mica-schist': 1.2,
+  dolerite: 1.3, limestone: 1.5, sandstone: 1.5,
+};
+const ASPECT_DEGREES = { N:0, NE:45, E:90, SE:135, S:180, SW:225, W:270, NW:315 };
+
+function scoreHour({ precip=0, precipProb=0, windKmh=0, humidity=0 }) {
+  return worstScore([scorePrecip(precip), scorePrecipProb(precipProb), scoreWind(windKmh), scoreHumidity(humidity)]);
+}
+function scoreDay({ totalPrecip=0, maxWind=0, avgHumidity=0 }) {
+  return worstScore([scoreDailyPrecip(totalPrecip), scoreWind(maxWind), scoreHumidity(avgHumidity)]);
+}
+function combineHourlyParams(a, b) {
+  return { precip: Math.max(a.precip??0, b.precip??0), precipProb: Math.max(a.precipProb??0, b.precipProb??0), windKmh: Math.max(a.windKmh??0, b.windKmh??0), humidity: Math.max(a.humidity??0, b.humidity??0) };
+}
+function combineDailyParams(a, b) {
+  return { totalPrecip: Math.max(a.totalPrecip??0, b.totalPrecip??0), maxWind: Math.max(a.maxWind??0, b.maxWind??0), avgHumidity: Math.max(a.avgHumidity??0, b.avgHumidity??0) };
+}
+function modelAgreement(mn, om) {
+  if (mn<=0.5 && om<=0.5) return 'Models agree — dry';
+  if (mn>0.5 && om>0.5) return 'Both predict rain';
+  return 'Models disagree';
+}
+function dryingEstimate({ hoursSinceRain, windKmh=0, humidity=0, rockType='granite' }) {
+  const m = ROCK_TYPE_DRYING_MULTIPLIER[rockType] ?? 1.0;
+  let dry = 24*m, damp = 6*m;
+  if (windKmh>20) { dry*=0.7; damp*=0.7; }
+  if (humidity>80) { dry*=1.5; damp*=1.5; }
+  if (hoursSinceRain>dry) return 'Likely dry';
+  if (hoursSinceRain>damp) return 'Probably still damp';
+  return 'Recently rained — allow drying time';
+}
+function windExposure(windDeg, aspect) {
+  const cragDeg = ASPECT_DEGREES[aspect] ?? 0;
+  let diff = Math.abs(windDeg - cragDeg);
+  if (diff>180) diff = 360-diff;
+  if (diff<=45) return 'Exposed';
+  if (diff<=90) return 'Partially exposed';
+  return 'Sheltered';
+}
+function scorePrecip(mm) { return mm===0?'green':mm<=0.5?'amber':'red'; }
+function scorePrecipProb(p) { return p<30?'green':p<=60?'amber':'red'; }
+function scoreWind(k) { return k<30?'green':k<=50?'amber':'red'; }
+function scoreHumidity(p) { return p<70?'green':p<=85?'amber':'red'; }
+function scoreDailyPrecip(mm) { return mm<1?'green':mm<=5?'amber':'red'; }
+function worstScore(arr) { return arr.includes('red')?'red':arr.includes('amber')?'amber':'green'; }
+
+// ===== UI HELPERS =====
+function applyScore(el, score, animate=false) {
+  const classes = ['score-green','score-amber','score-red','loading'];
+  const prev = classes.find(c=>el.classList.contains(c));
+  const next = `score-${score}`;
+  if (prev===next) return;
+  if (animate && prev) { el.classList.add('score-fade'); setTimeout(()=>el.classList.remove('score-fade'),350); }
+  el.classList.remove(...classes);
+  el.classList.add(next);
+}
+function scoreLabel(s) { return s==='green'?'Good':s==='amber'?'Marginal':'Poor'; }
+function conditionIcon(p, w) { return p>5?'🌧':p>1?'🌦':w>50?'💨':'☀️'; }
+function formatTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('en-IE',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function formatDateShort(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IE',{weekday:'short',day:'numeric'});
+}
+function todayISO() { return new Date().toISOString().slice(0,10); }
+function next7Days() {
+  const days=[];
+  for (let i=0;i<7;i++) { const d=new Date(); d.setDate(d.getDate()+i); days.push(d.toISOString().slice(0,10)); }
+  return days;
+}
+function showFreshnessBar(oldestTs) {
+  const el = document.getElementById('freshness-time');
+  if (!el) return;
+  if (!oldestTs) { el.textContent='—'; return; }
+  el.textContent = new Date(oldestTs).toLocaleTimeString('en-IE',{hour:'2-digit',minute:'2-digit',hour12:false});
+  el.classList.toggle('stale', Date.now()-oldestTs > 90*60*1000);
+}
+function showToast(msg, dur=3000) {
+  let t = document.getElementById('toast');
+  if (!t) { t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add('visible');
+  setTimeout(()=>t.classList.remove('visible'),dur);
+}
+function capitalise(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+
+// ===== FAVOURITES =====
+const FAV_KEY = 'icw:favourites';
+function getFavourites() { try { return JSON.parse(localStorage.getItem(FAV_KEY)||'[]'); } catch { return []; } }
+function saveFavourites(ids) { localStorage.setItem(FAV_KEY,JSON.stringify(ids)); }
+function isFavourite(id) { return getFavourites().includes(id); }
+function toggleFavourite(id) {
+  const favs=getFavourites();
+  if (favs.includes(id)) { saveFavourites(favs.filter(f=>f!==id)); return false; }
+  favs.push(id); saveFavourites(favs); return true;
+}
+function importFavourites(ids) {
+  const cur=getFavourites(); const added=ids.filter(i=>!cur.includes(i));
+  saveFavourites([...cur,...added]); return added.length;
+}
+function shareFavourites() {
+  const favs=getFavourites(); if (!favs.length) return null;
+  const base=window.location.href.split('?')[0].split('#')[0];
+  return `${base}#/overview?fav=${favs.join(',')}`;
+}
+
+// ===== API + CACHE =====
+const USER_AGENT = 'IrishClimbingWeather/1.0 (github.com/dhomanx/climb-weather)';
+const TTL = { metNorway:3600000, openMeteo:3600000, observations:1200000, warnings:1200000, sunrise:86400000 };
+
+function cacheKey(type,...parts) { return `icw:${type}:${parts.join(':')}`; }
+function getCached(key,ttl) {
+  try { const r=localStorage.getItem(key); if(!r) return null; const {data,fetchedAt}=JSON.parse(r); return Date.now()-fetchedAt>ttl?null:data; } catch { return null; }
+}
+function setCache(key,data) { try { localStorage.setItem(key,JSON.stringify({data,fetchedAt:Date.now()})); } catch {} }
+function getCacheFetchedAt(key) { try { const r=localStorage.getItem(key); return r?JSON.parse(r).fetchedAt:null; } catch { return null; } }
+function getOldestCacheTimestamp(keys) {
+  let oldest=null;
+  for (const k of keys) { const ts=getCacheFetchedAt(k); if(ts!==null&&(oldest===null||ts<oldest)) oldest=ts; }
+  return oldest;
+}
+function forceRefresh() {
+  const rem=[];
+  for (let i=0;i<localStorage.length;i++) { const k=localStorage.key(i); if(k&&k.startsWith('icw:')) rem.push(k); }
+  rem.forEach(k=>localStorage.removeItem(k));
+}
+
+async function fetchMetNorwayForecast(lat,lon) {
+  const key=cacheKey('mn',lat,lon), cached=getCached(key,TTL.metNorway);
+  if (cached) return cached;
+  const resp=await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`,{headers:{'User-Agent':USER_AGENT}});
+  if (!resp.ok) throw new Error(`MET Norway ${resp.status}`);
+  const data=await resp.json(); setCache(key,data); return data;
+}
+function parseMetNorwayForecast(data) {
+  return (data?.properties?.timeseries??[]).map(e=>{
+    const inst=e.data?.instant?.details??{}, n1=e.data?.next_1_hours?.details??{}, n6=e.data?.next_6_hours?.details??{};
+    return { time:e.time, precip:n1.precipitation_amount??n6.precipitation_amount??0, precipProb:null,
+      windKmh:(inst.wind_speed??0)*3.6, windDir:inst.wind_from_direction??0,
+      humidity:inst.relative_humidity??0, tempC:inst.air_temperature??0,
+      cloudPct:inst.cloud_area_fraction??0, dewPointC:inst.dew_point_temperature??null };
+  });
+}
+
+const OM_PARAMS='temperature_2m,precipitation,precipitation_probability,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover,dew_point_2m';
+async function fetchOpenMeteoForecast(lat,lon) {
+  const key=cacheKey('om',lat,lon), cached=getCached(key,TTL.openMeteo);
+  if (cached) return cached;
+  const resp=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=${OM_PARAMS}&forecast_days=7&wind_speed_unit=kmh&timezone=Europe%2FDublin`);
+  if (!resp.ok) throw new Error(`Open-Meteo ${resp.status}`);
+  const data=await resp.json(); setCache(key,data); return data;
+}
+function parseOpenMeteoForecast(data) {
+  const h=data?.hourly??{}, times=h.time??[];
+  return times.map((time,i)=>({ time:time+':00Z',
+    precip:h.precipitation?.[i]??0, precipProb:h.precipitation_probability?.[i]??0,
+    windKmh:h.wind_speed_10m?.[i]??0, windDir:h.wind_direction_10m?.[i]??0,
+    humidity:h.relative_humidity_2m?.[i]??0, tempC:h.temperature_2m?.[i]??0,
+    cloudPct:h.cloud_cover?.[i]??0, dewPointC:h.dew_point_2m?.[i]??null }));
+}
+
+async function fetchXml(url) {
+  const resp=await fetch(url);
+  if (!resp.ok) throw new Error(`${resp.status}`);
+  return resp.text();
+}
+async function fetchObservations() {
+  const key=cacheKey('obs'), cached=getCached(key,TTL.observations);
+  if (cached) return cached;
+  const xml=await fetchXml('https://www.met.ie/Open_Data/xml/obs_present.xml');
+  setCache(key,xml); return xml;
+}
+function parseObservations(xml) {
+  const doc=new DOMParser().parseFromString(xml,'text/xml'), stations={};
+  doc.querySelectorAll('station').forEach(el=>{
+    const name=el.getAttribute('name'); if(!name) return;
+    const get=a=>{ const v=el.getAttribute(a); return v!==null&&v!==''?parseFloat(v):null; };
+    stations[name]={ name, tempC:get('temp'), humidity:get('humidity'),
+      windKmh:get('windspd')!==null?get('windspd')*1.852:null, windDir:get('winddir'),
+      rainMmH:get('rain'), pressureHpa:get('msl'), weatherDesc:el.getAttribute('weatherdesc')??'' };
+  });
+  return stations;
+}
+async function fetchWarnings() {
+  const key=cacheKey('warn'), cached=getCached(key,TTL.warnings);
+  if (cached) return cached;
+  const xml=await fetchXml('https://www.met.ie/warningsxml/rss.xml');
+  setCache(key,xml); return xml;
+}
+function parseWarnings(xml) {
+  const doc=new DOMParser().parseFromString(xml,'application/xml'), warnings=[];
+  doc.querySelectorAll('item').forEach(item=>{
+    const title=item.querySelector('title')?.textContent??'';
+    const desc=item.querySelector('description')?.textContent??'';
+    const cm=title.match(/\b(Red|Orange|Yellow)\b/i), colour=cm?cm[1].toLowerCase():'yellow';
+    const cnm=desc.match(/counties?[:\s]+([^.]+)/i);
+    const counties=cnm?cnm[1].split(/[,\s]+/).map(c=>c.trim()).filter(Boolean):[];
+    const tm=title.match(/\b(Wind|Rain|Snow|Ice|Fog|Thunder)\b/i), type=tm?tm[1]:'Weather';
+    warnings.push({title,description:desc,colour,counties,type});
+  });
+  return warnings;
+}
+async function fetchSunrise(lat,lon,date) {
+  const key=cacheKey('sun',lat,lon,date), cached=getCached(key,TTL.sunrise);
+  if (cached) return cached;
+  const resp=await fetch(`https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${lat}&lon=${lon}&date=${date}`,{headers:{'User-Agent':USER_AGENT}});
+  if (!resp.ok) throw new Error(`Sunrise ${resp.status}`);
+  const data=await resp.json(); setCache(key,data); return data;
+}
+function parseSunrise(data) {
+  const p=data?.properties??{};
+  return { sunrise:p.sunrise?.time??null, sunset:p.sunset?.time??null,
+    civilTwilightStart:p.civil_twilight_begin?.time??null, civilTwilightEnd:p.civil_twilight_end?.time??null };
+}
+function buildDailySummaries(hourly) {
+  const days={};
+  for (const h of hourly) {
+    const day=h.time.slice(0,10);
+    if (!days[day]) days[day]={hours:[]};
+    days[day].hours.push(h);
+  }
+  return Object.entries(days).map(([date,{hours}])=>({
+    date, totalPrecip:hours.reduce((s,h)=>s+(h.precip??0),0),
+    maxWind:Math.max(...hours.map(h=>h.windKmh??0)),
+    avgHumidity:hours.reduce((s,h)=>s+(h.humidity??0),0)/hours.length,
+    minTemp:Math.min(...hours.map(h=>h.tempC??99)),
+    maxTemp:Math.max(...hours.map(h=>h.tempC??-99)), hours
+  }));
+}
+
+// ===== LOCATIONS =====
+let _locations = LOCATIONS_DATA;
+function loadLocations() { return Promise.resolve(_locations); }
+function getLocation(id) { return _locations.find(l=>l.id===id)??null; }
+function groupByRegion(locs) {
+  const order=['Leinster','Munster','Connacht','Ulster'], groups={};
+  for (const l of locs) { if(!groups[l.region]) groups[l.region]=[]; groups[l.region].push(l); }
+  return order.filter(r=>groups[r]).map(r=>({region:r,locations:groups[r]}));
+}
+
+// ===== WARNINGS RENDER =====
+async function loadAndRenderWarnings(locations) {
+  const banner=document.getElementById('warnings-banner'); if(!banner) return;
+  try {
+    const xml=await fetchWarnings(), warnings=parseWarnings(xml);
+    const relevant=new Set(locations.map(l=>l.county.toLowerCase()));
+    const active=warnings.filter(w=>w.counties.some(c=>relevant.has(c.toLowerCase()))||w.counties.length===0);
+    banner.innerHTML='';
+    for (const w of active) {
+      const div=document.createElement('div');
+      div.className=`warning-banner warning-${w.colour}`;
+      const icon=w.colour==='red'?'🔴':w.colour==='orange'?'🟠':'🟡';
+      div.innerHTML=`<strong>${icon} ${w.type} Warning — ${capitalise(w.colour)}</strong><span>${w.title}</span><small>${w.description.slice(0,140)}${w.description.length>140?'…':''}</small>`;
+      banner.appendChild(div);
+    }
+  } catch {}
+}
+function renderLocationWarnings(container, warnings, county) {
+  container.innerHTML='';
+  const rel=warnings.filter(w=>w.counties.length===0||w.counties.some(c=>c.toLowerCase()===county.toLowerCase()));
+  for (const w of rel) {
+    const div=document.createElement('div');
+    div.className=`warning-banner warning-${w.colour}`;
+    const icon=w.colour==='red'?'🔴':w.colour==='orange'?'🟠':'🟡';
+    div.innerHTML=`<strong>${icon} ${w.type} Warning — ${capitalise(w.colour)}</strong><span>${w.description}</span>`;
+    container.appendChild(div);
+  }
+}
+
+// ===== OVERVIEW PAGE =====
+async function renderOverview(locations, params) {
+  if (params.has('fav')) {
+    const ids=params.get('fav').split(',').filter(Boolean);
+    const added=importFavourites(ids);
+    if (added>0) showToast(`${added} location${added>1?'s':''} added to your favourites.`);
+  }
+  const app=document.getElementById('app');
+  app.innerHTML='';
+  const days=next7Days();
+  const dayHeaders=days.map((d,i)=>`<th data-date="${d}">${i===0?'Today':i===1?'Tomorrow':formatDateShort(d+'T12:00:00')}</th>`).join('');
+  const favs=getFavourites(), pinnedIds=new Set(favs);
+  const pinned=locations.filter(l=>pinnedIds.has(l.id));
+  const rest=locations.filter(l=>!pinnedIds.has(l.id));
+  const grouped=groupByRegion(rest);
+
+  function buildRows(locs) {
+    return locs.map(loc=>{
+      const cells=days.map(d=>`<td class="score-cell loading" data-loc="${loc.id}" data-date="${d}"><span class="cell-precip"></span><span class="cell-icon"></span></td>`).join('');
+      return `<tr data-location="${loc.id}"><td class="loc-name-cell"><button class="fav-star${isFavourite(loc.id)?' active':''}" data-id="${loc.id}" title="Favourite" aria-label="Toggle favourite">★</button><a href="#/location/${loc.id}">${loc.name}</a></td>${cells}</tr>`;
+    }).join('');
+  }
+
+  let tableBody='';
+  if (pinned.length) tableBody+=`<tbody class="pinned-group"><tr class="group-header pinned-header"><td colspan="${days.length+1}">⭐ Favourites</td></tr>${buildRows(pinned)}</tbody>`;
+  for (const {region,locations:locs} of grouped) tableBody+=`<tbody class="region-group"><tr class="group-header"><td colspan="${days.length+1}">${region}</td></tr>${buildRows(locs)}</tbody>`;
+
+  app.innerHTML=`
+    <div class="overview-controls">
+      <h1>Irish Climbing Weather</h1>
+      <div class="control-buttons">
+        ${favs.length?`<button id="share-favs-btn">Share Favourites</button>`:''}
+        <button id="refresh-btn">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="overview-table">
+        <thead><tr><th class="loc-col">Location</th>${dayHeaders}</tr></thead>
+        ${tableBody}
+      </table>
+    </div>`;
+
+  document.getElementById('refresh-btn')?.addEventListener('click',async()=>{ forceRefresh(); showToast('Refreshing data…'); await renderOverview(locations,new URLSearchParams()); });
+  document.getElementById('share-favs-btn')?.addEventListener('click',()=>{
+    const url=shareFavourites();
+    if (url) navigator.clipboard?.writeText(url).then(()=>showToast('Share link copied!')).catch(()=>prompt('Copy this link:',url));
+  });
+  app.addEventListener('click',e=>{
+    const btn=e.target.closest('.fav-star'); if(!btn) return;
+    const nowFav=toggleFavourite(btn.dataset.id);
+    btn.classList.toggle('active',nowFav);
+    showToast(nowFav?'Added to favourites':'Removed from favourites');
+    renderOverview(locations,new URLSearchParams());
+  });
+
+  loadAndRenderWarnings(locations).catch(()=>{});
+  locations.forEach(loc=>fetchForecastsForLocation(loc,days));
+}
+
+async function fetchForecastsForLocation(loc,days) {
+  const mnP=fetchMetNorwayForecast(loc.lat,loc.lon).then(parseMetNorwayForecast).then(buildDailySummaries);
+  const omP=fetchOpenMeteoForecast(loc.lat,loc.lon).then(parseOpenMeteoForecast).then(buildDailySummaries);
+  let firstDone=false;
+  const settled=await Promise.allSettled([
+    mnP.then(s=>{ if(!firstDone){firstDone=true;renderLocationCells(loc.id,s,days,null,false);} return s; }),
+    omP.then(s=>{ if(!firstDone){firstDone=true;renderLocationCells(loc.id,s,days,null,false);} return s; }),
+  ]);
+  const mn=settled[0].status==='fulfilled'?settled[0].value:null;
+  const om=settled[1].status==='fulfilled'?settled[1].value:null;
+  if (mn&&om) renderLocationCells(loc.id,mn,days,om,true);
+  else if (!mn&&!om) days.forEach(d=>{
+    const cell=document.querySelector(`.score-cell[data-loc="${loc.id}"][data-date="${d}"]`);
+    if(cell){cell.classList.remove('loading');cell.classList.add('score-error');cell.innerHTML='<span>—</span>';}
+  });
+  updateFreshness();
+}
+
+function renderLocationCells(locId,primary,days,secondary,animate) {
+  const byDate=Object.fromEntries(primary.map(s=>[s.date,s]));
+  const sec=secondary?Object.fromEntries(secondary.map(s=>[s.date,s])):{};
+  for (const day of days) {
+    const cell=document.querySelector(`.score-cell[data-loc="${locId}"][data-date="${day}"]`); if(!cell) continue;
+    const p=byDate[day]; if(!p){cell.classList.remove('loading');continue;}
+    let params={totalPrecip:p.totalPrecip,maxWind:p.maxWind,avgHumidity:p.avgHumidity};
+    if (sec[day]) params=combineDailyParams(params,sec[day]);
+    const score=scoreDay(params);
+    applyScore(cell,score,animate);
+    cell.querySelector('.cell-precip').textContent=`${params.totalPrecip.toFixed(1)}mm`;
+    cell.querySelector('.cell-icon').textContent=conditionIcon(params.totalPrecip,params.maxWind);
+    cell.onclick=()=>{ window.location.hash=`#/location/${locId}`; };
+    cell.style.cursor='pointer';
+    cell.title=`${scoreLabel(score)} — ${params.totalPrecip.toFixed(1)}mm, wind ${Math.round(params.maxWind)}km/h`;
+  }
+}
+function updateFreshness() {
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith('icw:'))keys.push(k);}
+  showFreshnessBar(getOldestCacheTimestamp(keys));
+}
+
+// ===== DETAIL PAGE =====
+async function renderDetail(location) {
+  const app=document.getElementById('app');
+  app.innerHTML=`
+    <div class="detail-header">
+      <a href="#/overview" class="back-link">← All Locations</a>
+      <div class="detail-title-row">
+        <h1>${location.name}</h1>
+        <button class="fav-star${isFavourite(location.id)?' active':''}" id="detail-fav-btn">★</button>
+      </div>
+      <div class="detail-meta">
+        <span>${location.region}</span><span>${location.elevation_m}m</span>
+        <span>Aspect: ${location.aspect}</span><span>${capitalise(location.rock_type)}</span>
+      </div>
+      ${location.notes?`<p class="detail-notes">${location.notes}</p>`:''}
+      <div id="location-warnings"></div>
+    </div>
+    <div class="detail-body">
+      <section id="current-obs" class="detail-section"><h2>Current Conditions</h2><p class="muted">Loading…</p></section>
+      <section id="daylight-section" class="detail-section"><h2>Daylight</h2><p class="muted">Loading…</p></section>
+      <section id="hourly-section" class="detail-section"><h2>Hourly Forecast — Next 48 Hours</h2><p class="muted">Loading…</p></section>
+      <section id="daily-section" class="detail-section"><h2>Daily Summary (Days 3–7)</h2><p class="muted">Loading…</p></section>
+      <section id="model-section" class="detail-section"><h2>Model Comparison</h2><p class="muted">Loading…</p></section>
+      <section id="drying-section" class="detail-section"><h2>Recent Rainfall &amp; Drying Estimate</h2><p class="muted">Loading…</p></section>
+    </div>`;
+
+  document.getElementById('detail-fav-btn')?.addEventListener('click',e=>{
+    const nowFav=toggleFavourite(location.id);
+    e.currentTarget.classList.toggle('active',nowFav);
+    showToast(nowFav?'Added to favourites':'Removed from favourites');
+  });
+
+  const today=todayISO();
+  const [mnR,omR,obsR,sunR,warnR]=await Promise.allSettled([
+    fetchMetNorwayForecast(location.lat,location.lon).then(parseMetNorwayForecast),
+    fetchOpenMeteoForecast(location.lat,location.lon).then(parseOpenMeteoForecast),
+    fetchObservations().then(parseObservations),
+    fetchSunrise(location.lat,location.lon,today),
+    fetchWarnings().then(parseWarnings),
+  ]);
+  const mnH=mnR.status==='fulfilled'?mnR.value:null;
+  const omH=omR.status==='fulfilled'?omR.value:null;
+  const obs=obsR.status==='fulfilled'?obsR.value:null;
+  const sun=sunR.status==='fulfilled'?parseSunrise(sunR.value):null;
+  const warns=warnR.status==='fulfilled'?warnR.value:[];
+
+  const wc=document.getElementById('location-warnings');
+  if (wc) renderLocationWarnings(wc,warns,location.county);
+  renderObsSection(location,obs);
+  renderDaylightSection(sun);
+  if (mnH||omH) renderHourlySection(location,mnH,omH); else document.getElementById('hourly-section').innerHTML='<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
+  if (mnH||omH) renderDailySection(mnH,omH);
+  if (mnH&&omH) renderModelSection(mnH,omH); else document.getElementById('model-section').innerHTML='<h2>Model Comparison</h2><p>Only one data source available.</p>';
+  renderDryingSection(location,mnH??omH);
+}
+
+function renderObsSection(location,observations) {
+  const s=document.getElementById('current-obs');
+  if (!observations) { s.innerHTML='<h2>Current Conditions</h2><p class="error-state">Observations unavailable.</p>'; return; }
+  const obs=observations[location.nearest_station];
+  if (!obs) { s.innerHTML=`<h2>Current Conditions</h2><p class="muted">No data for station: ${location.nearest_station}</p>`; return; }
+  const score=scoreHour({precip:obs.rainMmH??0,precipProb:0,windKmh:obs.windKmh??0,humidity:obs.humidity??0});
+  s.innerHTML=`<h2>Current Conditions</h2>
+    <div class="obs-score score-pill score-${score}">${scoreLabel(score)}</div>
+    <p class="obs-desc">${obs.weatherDesc||'—'}</p>
+    <div class="obs-grid">
+      <div class="obs-item"><span class="obs-label">Temp</span><span>${obs.tempC!==null?obs.tempC+'°C':'—'}</span></div>
+      <div class="obs-item"><span class="obs-label">Rain rate</span><span>${obs.rainMmH!==null?obs.rainMmH+'mm/h':'—'}</span></div>
+      <div class="obs-item"><span class="obs-label">Wind</span><span>${obs.windKmh!==null?Math.round(obs.windKmh)+'km/h':'—'}</span></div>
+      <div class="obs-item"><span class="obs-label">Humidity</span><span>${obs.humidity!==null?obs.humidity+'%':'—'}</span></div>
+      <div class="obs-item"><span class="obs-label">Pressure</span><span>${obs.pressureHpa!==null?obs.pressureHpa+'hPa':'—'}</span></div>
+    </div>
+    <p class="obs-station-note">Station: ${location.nearest_station} (nearest Met Éireann station)</p>`;
+}
+
+function renderDaylightSection(sd) {
+  const s=document.getElementById('daylight-section');
+  if (!sd) { s.innerHTML='<h2>Daylight</h2><p class="error-state">Sunrise data unavailable.</p>'; return; }
+  const {sunrise,sunset,civilTwilightStart,civilTwilightEnd}=sd;
+  let dh='';
+  if (civilTwilightStart&&civilTwilightEnd) {
+    const mins=(new Date(civilTwilightEnd)-new Date(civilTwilightStart))/60000;
+    dh=`${Math.floor(mins/60)}h ${Math.round(mins%60)}m`;
+  }
+  s.innerHTML=`<h2>Daylight</h2><div class="daylight-grid">
+    <div><span class="obs-label">First light</span><span>${formatTime(civilTwilightStart)}</span></div>
+    <div><span class="obs-label">Sunrise</span><span>${formatTime(sunrise)}</span></div>
+    <div><span class="obs-label">Sunset</span><span>${formatTime(sunset)}</span></div>
+    <div><span class="obs-label">Last light</span><span>${formatTime(civilTwilightEnd)}</span></div>
+    ${dh?`<div><span class="obs-label">Usable daylight</span><span>${dh}</span></div>`:''}
+  </div>`;
+}
+
+function renderHourlySection(location,mnH,omH) {
+  const s=document.getElementById('hourly-section');
+  const now=new Date(), cutoff=new Date(now.getTime()+48*3600000);
+  const mnByT=Object.fromEntries((mnH??[]).map(h=>[h.time.slice(0,13),h]));
+  const omByT=Object.fromEntries((omH??[]).map(h=>[h.time.slice(0,13),h]));
+  const keys=[...new Set([...Object.keys(mnByT),...Object.keys(omByT)])].filter(k=>{const d=new Date(k+':00:00Z');return d>=now&&d<=cutoff;}).sort();
+  if (!keys.length) { s.innerHTML='<h2>Hourly Forecast — Next 48 Hours</h2><p>No hourly data.</p>'; return; }
+  const rows=keys.map(k=>{
+    const mn=mnByT[k],om=omByT[k];
+    const p=mn&&om?combineHourlyParams(mn,om):(mn??om);
+    const score=scoreHour(p);
+    const exp=windExposure(p.windDir??0,location.aspect);
+    const ec=exp==='Sheltered'?'sheltered':exp==='Exposed'?'exposed':'partial';
+    return `<tr class="score-row score-${score}">
+      <td class="hour-time">${formatTime(k+':00:00Z')}</td>
+      <td>${p.precip.toFixed(1)}</td>
+      <td>${p.precipProb!==null?Math.round(p.precipProb)+'%':'—'}</td>
+      <td>${Math.round(p.tempC)}°</td>
+      <td>${Math.round(p.windKmh)}</td>
+      <td>${Math.round(p.windDir??0)}°</td>
+      <td>${Math.round(p.humidity)}</td>
+      <td>${Math.round(p.cloudPct??0)}</td>
+      <td class="exposure-${ec}">${exp}</td>
+    </tr>`;
+  }).join('');
+  s.innerHTML=`<h2>Hourly Forecast — Next 48 Hours</h2>
+    <div class="hourly-scroll"><table class="hourly-table">
+      <thead><tr><th>Time</th><th>Precip mm</th><th>Prob</th><th>Temp</th><th>Wind km/h</th><th>Dir</th><th>Hum %</th><th>Cloud %</th><th>Shelter</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+function renderDailySection(mnH,omH) {
+  const s=document.getElementById('daily-section');
+  const mnD=buildDailySummaries(mnH??[]), omD=buildDailySummaries(omH??[]);
+  const omByDate=Object.fromEntries(omD.map(d=>[d.date,d]));
+  const days=mnD.slice(2,7);
+  if (!days.length) { s.innerHTML='<h2>Daily Summary (Days 3–7)</h2><p>No extended forecast.</p>'; return; }
+  const rows=days.map(d=>{
+    const om=omByDate[d.date], params=om?combineDailyParams(d,om):d;
+    const score=scoreDay(params);
+    return `<tr class="score-row score-${score}">
+      <td>${formatDateShort(d.date+'T12:00:00')}</td>
+      <td>${params.totalPrecip.toFixed(1)}mm</td>
+      <td>${Math.round(params.minTemp??0)}–${Math.round(params.maxTemp??0)}°C</td>
+      <td>${Math.round(params.maxWind)}km/h</td>
+      <td>${Math.round(params.avgHumidity)}%</td>
+      <td class="score-pill score-${score}">${scoreLabel(score)}</td>
+    </tr>`;
+  }).join('');
+  s.innerHTML=`<h2>Daily Summary (Days 3–7)</h2>
+    <table class="daily-table">
+      <thead><tr><th>Day</th><th>Precip</th><th>Temp</th><th>Max Wind</th><th>Humidity</th><th>Conditions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderModelSection(mnH,omH) {
+  const s=document.getElementById('model-section');
+  const now=new Date(), cutoff=new Date(now.getTime()+48*3600000);
+  const mnByT=Object.fromEntries(mnH.map(h=>[h.time.slice(0,13),h]));
+  const omByT=Object.fromEntries(omH.map(h=>[h.time.slice(0,13),h]));
+  const keys=[...new Set([...Object.keys(mnByT),...Object.keys(omByT)])].filter(k=>new Date(k+':00:00Z')>=now&&new Date(k+':00:00Z')<=cutoff).sort().slice(0,24);
+  if (!keys.length) { s.innerHTML='<h2>Model Comparison</h2><p>No data.</p>'; return; }
+  const rows=keys.map(k=>{
+    const mn=mnByT[k]?.precip??0, om=omByT[k]?.precip??0;
+    const ag=modelAgreement(mn,om);
+    const ac=ag==='Models agree — dry'?'agree':ag==='Both predict rain'?'both-rain':'disagree';
+    return `<tr><td>${formatTime(k+':00:00Z')}</td><td>${mn.toFixed(2)}</td><td>${om.toFixed(2)}</td><td class="model-${ac}">${ag}</td></tr>`;
+  }).join('');
+  s.innerHTML=`<h2>Model Comparison</h2>
+    <p class="model-note">Comparing precipitation forecasts from MET Norway and Open-Meteo. Where models disagree, scores use the more pessimistic value.</p>
+    <table class="model-table">
+      <thead><tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Agreement</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderDryingSection(location,hourly) {
+  const s=document.getElementById('drying-section');
+  if (!hourly?.length) { s.innerHTML='<h2>Recent Rainfall &amp; Drying Estimate</h2><p class="error-state">No data.</p>'; return; }
+  const now=new Date();
+  const past=hourly.filter(h=>new Date(h.time)<now).sort((a,b)=>a.time.localeCompare(b.time));
+  let lastRain=null;
+  for (const h of past) { if ((h.precip??0)>0.5) lastRain=h.time; }
+  const hoursSince=lastRain?(now-new Date(lastRain))/3600000:999;
+  const latest=past[past.length-1]??{};
+  const est=dryingEstimate({hoursSinceRain:hoursSince,windKmh:latest.windKmh??0,humidity:latest.humidity??0,rockType:location.rock_type});
+  const ec=est==='Likely dry'?'green':est==='Probably still damp'?'amber':'red';
+  const recent=past.slice(-24);
+  const maxP=Math.max(0.1,...recent.map(h=>h.precip??0));
+  const bars=recent.map(h=>{
+    const pct=Math.round(((h.precip??0)/maxP)*100);
+    return `<div class="precip-bar-wrap" title="${formatTime(h.time)}: ${(h.precip??0).toFixed(2)}mm"><div class="precip-bar" style="height:${pct}%"></div><span class="bar-time">${formatTime(h.time).slice(0,2)}h</span></div>`;
+  }).join('');
+  s.innerHTML=`<h2>Recent Rainfall &amp; Drying Estimate</h2>
+    <div class="drying-estimate score-pill score-${ec}">${est}</div>
+    <p class="drying-note">${lastRain?`Last significant rain: ${formatTime(lastRain)} (${Math.round(hoursSince)}h ago)`:'No significant rain in recent data.'} Based on ${location.rock_type}, current wind and humidity. Conservative estimate.</p>
+    <div class="precip-bars">${bars}</div>`;
+}
+
+// ===== ROUTER + APP =====
+let _appLocations = null;
+
+function handleRoute() {
+  const hash=window.location.hash||'#/overview';
+  const [path,qs]=hash.slice(1).split('?');
+  const params=new URLSearchParams(qs??'');
+  const segs=path.replace(/^\//,'').split('/');
+  const page=segs[0]||'overview';
+  if (page===''||page==='overview') renderOverview(_appLocations,params);
+  else if (page==='location'&&segs[1]) {
+    const loc=getLocation(segs[1]);
+    if (loc) renderDetail(loc);
+    else { document.getElementById('app').innerHTML=`<div class="error-state"><a href="#/overview" class="back-link">← All Locations</a><p>Location not found.</p></div>`; }
+  } else if (page==='about') {
+    document.getElementById('app').innerHTML=`
+      <div class="about-page">
+        <a href="#/overview" class="back-link">← Back</a>
+        <h1>About Irish Climbing Weather</h1>
+        <p>A free tool to help Irish rock climbers find good conditions, quickly.</p>
+        <h2>Data Sources</h2>
+        <ul>
+          <li><strong>MET Norway Locationforecast</strong> — Weather forecast data from <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a>, licensed under Creative Commons 4.0 BY International.</li>
+          <li><strong>Open-Meteo</strong> — Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed under CC BY 4.0.</li>
+          <li><strong>Met Éireann</strong> — Copyright Met Éireann. Source: met.ie. This data is published under a Creative Commons Attribution 4.0 International (CC BY 4.0). Met Éireann does not accept any liability whatsoever for any error or omission in the data, their availability, or for any loss or damage arising from their use.</li>
+        </ul>
+        <h2>Privacy</h2>
+        <p>This site does not collect, store, or transmit any personal data. Your favourites are stored only in your browser.</p>
+        <p>No analytics, cookies, or tracking of any kind.</p>
+        <h2>Source Code</h2>
+        <p><a href="https://github.com/dhomanx/climb-weather" target="_blank" rel="noopener">github.com/dhomanx/climb-weather</a></p>
+      </div>`;
+  } else renderOverview(_appLocations,params);
+}
+
+async function init() {
+  _appLocations = await loadLocations();
+  handleRoute();
+  window.addEventListener('hashchange', handleRoute);
+  document.getElementById('refresh-footer-btn')?.addEventListener('click', () => {
+    forceRefresh(); handleRoute();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
