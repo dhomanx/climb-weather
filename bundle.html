@@ -646,14 +646,25 @@ async function fetchObservations() {
   const xml=await fetchXml('https://www.met.ie/Open_Data/xml/obs_present.xml');
   setCache(key,xml); return xml;
 }
+const COMPASS_DEG = {'N':0,'NNE':22.5,'NE':45,'ENE':67.5,'E':90,'ESE':112.5,'SE':135,'SSE':157.5,'S':180,'SSW':202.5,'SW':225,'WSW':247.5,'W':270,'WNW':292.5,'NW':315,'NNW':337.5};
+function compassToDeg(s) { return s ? (COMPASS_DEG[s.trim().toUpperCase()] ?? null) : null; }
+
 function parseObservations(xml) {
   const doc=new DOMParser().parseFromString(xml,'text/xml'), stations={};
   doc.querySelectorAll('station').forEach(el=>{
     const name=el.getAttribute('name'); if(!name) return;
-    const get=a=>{ const v=el.getAttribute(a); return v!==null&&v!==''?parseFloat(v):null; };
-    stations[name]={ name, tempC:get('temp'), humidity:get('rhum'),
-      windKmh:get('wdsp')!==null?get('wdsp')*1.852:null, windDir:get('wddir'),
-      rainMmH:get('rain'), pressureHpa:get('msl'), weatherDesc:el.getAttribute('weatherdesc')??'' };
+    const getText=tag=>el.querySelector(tag)?.textContent?.trim()??null;
+    const getNum=tag=>{ const t=getText(tag); if(!t||t==='Trace') return null; const n=parseFloat(t); return isNaN(n)?null:n; };
+    stations[name]={
+      name,
+      tempC: getNum('temp'),
+      humidity: getNum('humidity'),
+      windKmh: getNum('wind_speed')!==null ? getNum('wind_speed')*1.852 : null,
+      windDir: compassToDeg(getText('wind_direction')),
+      rainMmH: getNum('rainfall'),
+      pressureHpa: getNum('pressure'),
+      weatherDesc: getText('weather_text')??'',
+    };
   });
   return stations;
 }
@@ -687,8 +698,13 @@ async function fetchSunrise(lat,lon,date) {
 }
 function parseSunrise(data) {
   const p=data?.properties??{};
-  return { sunrise:p.sunrise?.time??null, sunset:p.sunset?.time??null,
-    civilTwilightStart:p.civil_twilight_begin?.time??null, civilTwilightEnd:p.civil_twilight_end?.time??null };
+  const sunrise=p.sunrise?.time??null, sunset=p.sunset?.time??null;
+  // civil_twilight not returned for Irish latitudes — estimate as ±30 min from sunrise/sunset
+  const civilTwilightStart = p.civil_twilight_begin?.time ??
+    (sunrise ? new Date(new Date(sunrise).getTime()-30*60000).toISOString() : null);
+  const civilTwilightEnd = p.civil_twilight_end?.time ??
+    (sunset ? new Date(new Date(sunset).getTime()+30*60000).toISOString() : null);
+  return { sunrise, sunset, civilTwilightStart, civilTwilightEnd };
 }
 function buildDailySummaries(hourly) {
   const days={};
