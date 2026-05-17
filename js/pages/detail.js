@@ -279,7 +279,6 @@ function renderDailySummary(mnHourly, omHourly) {
         <td>${Math.round(params.minTemp ?? 0)}–${Math.round(params.maxTemp ?? 0)}°C</td>
         <td>${Math.round(params.maxWind)}km/h</td>
         <td>${Math.round(params.avgHumidity)}%</td>
-        <td class="score-pill score-${score}">${scoreLabel(score)}</td>
       </tr>`;
   }).join('');
 
@@ -287,7 +286,7 @@ function renderDailySummary(mnHourly, omHourly) {
     <h2>Daily Summary (Days 3–7)</h2>
     <table class="daily-table">
       <thead>
-        <tr><th>Day</th><th>Precip</th><th>Temp</th><th>Max Wind</th><th>Humidity</th><th>Conditions</th></tr>
+        <tr><th>Day</th><th>Precip</th><th>Temp</th><th>Max Wind</th><th>Humidity</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;

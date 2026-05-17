@@ -47,6 +47,8 @@ export function combineDailyParams(metNorway, openMeteo) {
     totalPrecip: Math.max(metNorway.totalPrecip ?? 0, openMeteo.totalPrecip ?? 0),
     maxWind: Math.max(metNorway.maxWind ?? 0, openMeteo.maxWind ?? 0),
     avgHumidity: Math.max(metNorway.avgHumidity ?? 0, openMeteo.avgHumidity ?? 0),
+    minTemp: ((metNorway.minTemp ?? 0) + (openMeteo.minTemp ?? 0)) / 2,
+    maxTemp: ((metNorway.maxTemp ?? 0) + (openMeteo.maxTemp ?? 0)) / 2,
   };
 }
 
