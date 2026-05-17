@@ -946,11 +946,9 @@ function renderDaylightSection(sd) {
     dh=`${Math.floor(mins/60)}h ${Math.round(mins%60)}m`;
   }
   s.innerHTML=`<h2>Daylight</h2><div class="daylight-grid">
-    <div><span class="obs-label">First light</span><span>${formatTime(civilTwilightStart)}</span></div>
     <div><span class="obs-label">Sunrise</span><span>${formatTime(sunrise)}</span></div>
     <div><span class="obs-label">Sunset</span><span>${formatTime(sunset)}</span></div>
-    <div><span class="obs-label">Last light</span><span>${formatTime(civilTwilightEnd)}</span></div>
-    ${dh?`<div><span class="obs-label">Usable daylight</span><span>${dh}</span></div>`:''}
+    ${dh?`<div><span class="obs-label">Daylight</span><span>${dh}</span></div>`:''}
   </div>`;
 }
 
