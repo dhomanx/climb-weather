@@ -14,6 +14,10 @@ import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
 import { getMode, setMode } from '../settings.js';
 
+// Module-level cache so mode changes can re-score without re-fetching
+let _currentDays = [];
+const _locDataCache = new Map(); // locId → { mn: dailySummaries[], om: dailySummaries[] }
+
 export async function renderOverview(locations, params) {
   // Handle ?fav= import
   if (params.has('fav')) {
@@ -23,11 +27,13 @@ export async function renderOverview(locations, params) {
   }
 
   const mode = getMode();
+  _locDataCache.clear();
   const app = document.getElementById('app');
   app.innerHTML = '';
 
   // Build skeleton
   const days = next7Days();
+  _currentDays = days;
   const dayHeaders = days.map((d, i) => {
     const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDateShort(d + 'T12:00:00');
     return `<th data-date="${d}">${label}</th>`;
@@ -124,8 +130,15 @@ export async function renderOverview(locations, params) {
   app.addEventListener('click', e => {
     const modeBtn = e.target.closest('.mode-btn');
     if (modeBtn) {
-      setMode(modeBtn.dataset.mode);
-      renderOverview(locations, new URLSearchParams());
+      const newMode = modeBtn.dataset.mode;
+      setMode(newMode);
+      // Update button states immediately
+      document.querySelectorAll('.mode-btn').forEach(b =>
+        b.classList.toggle('mode-active', b.dataset.mode === newMode));
+      // Re-score all cached locations — no DOM rebuild, no grey flash
+      for (const [locId, { mn, om }] of _locDataCache) {
+        if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, newMode);
+      }
       return;
     }
     const favBtn = e.target.closest('.fav-star');
@@ -176,6 +189,9 @@ async function fetchForecastsForLocation(loc, days, mode) {
   const [mnResult, omResult] = settled;
   const mnSummaries = mnResult.status === 'fulfilled' ? mnResult.value : null;
   const omSummaries = omResult.status === 'fulfilled' ? omResult.value : null;
+
+  // Cache for instant mode switching
+  _locDataCache.set(loc.id, { mn: mnSummaries, om: omSummaries });
 
   if (mnSummaries && omSummaries) {
     renderLocationCells(loc.id, mnSummaries, days, omSummaries, true, mode);

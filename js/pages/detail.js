@@ -16,7 +16,10 @@ import {
 } from '../ui.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
-import { getMode } from '../settings.js';
+import { getMode, setMode } from '../settings.js';
+
+// Module-level state so mode changes can re-render sections without re-fetching
+let _detailState = null; // { locId, location, mnHourly, omHourly }
 
 export async function renderDetail(location) {
   const mode = getMode();
@@ -33,7 +36,15 @@ export async function renderDetail(location) {
         <span>${location.elevation_m}m</span>
         <span>Aspect: ${location.aspect}</span>
         <span>${capitalise(location.rock_type)}</span>
-        <a href="#/overview" class="mode-indicator" title="Change in overview">Mode: ${capitalise(mode)}</a>
+      </div>
+      <div class="mode-bar">
+        <span class="mode-label">I'm feeling</span>
+        <div class="mode-buttons">
+          <button class="mode-btn${mode === 'optimistic' ? ' mode-active' : ''}" data-mode="optimistic">Optimistic</button>
+          <button class="mode-btn${mode === 'balanced' ? ' mode-active' : ''}" data-mode="balanced">Balanced</button>
+          <button class="mode-btn${mode === 'pessimistic' ? ' mode-active' : ''}" data-mode="pessimistic">Pessimistic</button>
+        </div>
+        <a href="#/about" class="mode-about-link">?</a>
       </div>
       ${location.notes ? `<p class="detail-notes">${location.notes}</p>` : ''}
       <div id="location-warnings"></div>
@@ -77,6 +88,18 @@ export async function renderDetail(location) {
     showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
   });
 
+  document.querySelectorAll('.detail-header .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newMode = btn.dataset.mode;
+      setMode(newMode);
+      document.querySelectorAll('.detail-header .mode-btn').forEach(b =>
+        b.classList.toggle('mode-active', b.dataset.mode === newMode));
+      if (_detailState?.locId === location.id) {
+        applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, newMode);
+      }
+    });
+  });
+
   const today = todayISO();
 
   // Fire all fetches in parallel
@@ -98,33 +121,54 @@ export async function renderDetail(location) {
   const warnContainer = document.getElementById('location-warnings');
   if (warnContainer) renderLocationWarnings(warnContainer, warnings, location.county);
 
-  // Observations
+  // Observations and daylight don't depend on mode
   renderObservations(location, observations);
-
-  // Daylight
   renderDaylight(sunriseData);
 
-  // Hourly (next 48h)
-  if (mnHourly || omHourly) {
-    renderHourly(location, mnHourly, omHourly, mode);
-  } else {
-    document.getElementById('hourly-section').innerHTML = '<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
-  }
+  // Store state now so mode buttons can re-render sections instantly
+  _detailState = { locId: location.id, location, mnHourly, omHourly };
 
-  // Daily
-  if (mnHourly || omHourly) {
-    renderDailySummary(mnHourly, omHourly, mode);
-  }
+  // Use getMode() at call time — picks up any mode change made while loading
+  applyDetailMode(location, mnHourly, omHourly, getMode());
 
-  // Model comparison
-  if (mnHourly && omHourly) {
-    renderModelComparison(mnHourly, omHourly, mode);
-  } else {
-    document.getElementById('model-section').innerHTML = '<h2>Model Comparison</h2><p>Only one data source available.</p>';
-  }
-
-  // Drying estimate
+  // Drying estimate doesn't depend on mode
   renderDryingEstimate(location, mnHourly ?? omHourly);
+}
+
+function applyDetailMode(location, mnHourly, omHourly, mode) {
+  const sectionIds = ['hourly-section', 'daily-section', 'model-section'];
+
+  // Briefly fade sections so the user sees something happened
+  sectionIds.forEach(id => {
+    const s = document.getElementById(id);
+    if (s) s.style.opacity = '0.4';
+  });
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (mnHourly || omHourly) {
+        renderHourly(location, mnHourly, omHourly, mode);
+      } else {
+        const s = document.getElementById('hourly-section');
+        if (s) s.innerHTML = '<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
+      }
+
+      if (mnHourly || omHourly) renderDailySummary(mnHourly, omHourly, mode);
+
+      if (mnHourly && omHourly) {
+        renderModelComparison(mnHourly, omHourly, mode);
+      } else {
+        const s = document.getElementById('model-section');
+        if (s) s.innerHTML = '<h2>Model Comparison</h2><p>Only one data source available.</p>';
+      }
+
+      // Clear fade (sections were replaced but the section elements remain)
+      sectionIds.forEach(id => {
+        const s = document.getElementById(id);
+        if (s) s.style.opacity = '';
+      });
+    });
+  });
 }
 
 function renderObservations(location, observations) {
