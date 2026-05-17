@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug — Irish Climbing Weather</title>
+  <style>
+    body { font-family: monospace; padding: 1rem; font-size: 12px; background: #111; color: #eee; }
+    h1 { font-size: 1rem; color: #7af; margin-bottom: 1rem; }
+    h2 { font-size: 0.9rem; color: #af7; margin: 1.5rem 0 0.25rem; }
+    pre { white-space: pre-wrap; word-break: break-all; background: #222; padding: 0.5rem; border-radius: 4px; border-left: 3px solid #555; overflow-x: auto; }
+    pre.ok { border-color: #4a4; }
+    pre.err { border-color: #a44; color: #f88; }
+    .status { font-size: 0.8rem; color: #888; }
+    button { background: #333; color: #eee; border: 1px solid #555; padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-bottom: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Irish Climbing Weather — Debug</h1>
+  <p class="status" id="status">Running checks…</p>
+  <div id="out"></div>
+
+<script>
+const out = document.getElementById('out');
+const status = document.getElementById('status');
+
+function section(title, content, isErr) {
+  const div = document.createElement('div');
+  const id = 'sec-' + Math.random().toString(36).slice(2);
+  div.innerHTML = `
+    <h2>${title}</h2>
+    <button onclick="copyText('${id}')">Copy</button>
+    <pre id="${id}" class="${isErr?'err':'ok'}">${escHtml(content)}</pre>`;
+  out.appendChild(div);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyText(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard?.writeText(text).then(()=>alert('Copied!')).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); alert('Copied!');
+  });
+}
+
+async function run() {
+  const today = new Date().toISOString().slice(0,10);
+  const offsetMins = -new Date().getTimezoneOffset();
+  const offsetStr = (offsetMins>=0?'+':'-') + String(Math.floor(Math.abs(offsetMins)/60)).padStart(2,'0') + ':' + String(Math.abs(offsetMins)%60).padStart(2,'0');
+
+  section('Browser timezone info', JSON.stringify({
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    offsetMins,
+    offsetStr,
+    today,
+    now: new Date().toISOString(),
+  }, null, 2));
+
+  // 1. Met Éireann Observations
+  status.textContent = 'Fetching Met Éireann observations…';
+  try {
+    const resp = await fetch('https://www.met.ie/Open_Data/xml/obs_present.xml');
+    const text = await resp.text();
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    const stations = doc.querySelectorAll('station');
+
+    section(`Met Éireann — HTTP status`, `${resp.status} ${resp.statusText}`);
+    section(`Met Éireann — Station count`, `${stations.length} stations found`);
+
+    // Show raw first 800 chars
+    section('Met Éireann — Raw XML (first 800 chars)', text.slice(0, 800));
+
+    // Show first station attrs
+    if (stations[0]) {
+      const attrs = {};
+      for (const a of stations[0].attributes) attrs[a.name] = a.value;
+      section(`Met Éireann — First station attributes`, JSON.stringify(attrs, null, 2));
+    }
+
+    // Show Dublin station
+    const dublin = Array.from(stations).find(s => s.getAttribute('name') === 'Dublin');
+    if (dublin) {
+      const attrs = {};
+      for (const a of dublin.attributes) attrs[a.name] = a.value;
+      section('Met Éireann — Dublin station attributes', JSON.stringify(attrs, null, 2));
+    } else {
+      section('Met Éireann — Dublin lookup', 'Dublin NOT found. Station names:', false);
+      const names = Array.from(stations).map(s => s.getAttribute('name')).join(', ');
+      section('Met Éireann — All station names', names);
+    }
+  } catch(e) {
+    section('Met Éireann — ERROR', e.message + '\n\nThis usually means CORS blocked the request.', true);
+  }
+
+  // 2. MET Norway Sunrise
+  status.textContent = 'Fetching MET Norway sunrise…';
+  try {
+    const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=53.2712&lon=-6.1025&date=${today}&offset=${encodeURIComponent(offsetStr)}`;
+    section('MET Norway Sunrise — URL', url);
+    const resp = await fetch(url, {headers:{'User-Agent':'IrishClimbingWeather/1.0 debug'}});
+    const data = await resp.json();
+    section(`MET Norway Sunrise — HTTP status`, `${resp.status}`);
+    section('MET Norway Sunrise — Full JSON', JSON.stringify(data, null, 2));
+    // Specifically highlight properties
+    section('MET Norway Sunrise — properties keys', JSON.stringify(Object.keys(data?.properties??{}), null, 2));
+  } catch(e) {
+    section('MET Norway Sunrise — ERROR', e.message, true);
+  }
+
+  // 3. MET Norway Forecast
+  status.textContent = 'Fetching MET Norway forecast…';
+  try {
+    const resp = await fetch('https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.2712&lon=-6.1025', {headers:{'User-Agent':'IrishClimbingWeather/1.0 debug'}});
+    const data = await resp.json();
+    section(`MET Norway Forecast — HTTP status`, `${resp.status}`);
+    const first = data?.properties?.timeseries?.[0];
+    section('MET Norway Forecast — First timeseries entry', JSON.stringify(first, null, 2));
+  } catch(e) {
+    section('MET Norway Forecast — ERROR', e.message, true);
+  }
+
+  // 4. Open-Meteo
+  status.textContent = 'Fetching Open-Meteo…';
+  try {
+    const resp = await fetch('https://api.open-meteo.com/v1/forecast?latitude=53.2712&longitude=-6.1025&hourly=temperature_2m,precipitation,precipitation_probability,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover&forecast_days=1&wind_speed_unit=kmh&timezone=Europe%2FDublin');
+    const data = await resp.json();
+    section(`Open-Meteo — HTTP status`, `${resp.status}`);
+    const h = data?.hourly ?? {};
+    section('Open-Meteo — First hour values', JSON.stringify({
+      time: h.time?.[0],
+      temperature_2m: h.temperature_2m?.[0],
+      precipitation: h.precipitation?.[0],
+      precipitation_probability: h.precipitation_probability?.[0],
+      wind_speed_10m: h.wind_speed_10m?.[0],
+      wind_direction_10m: h.wind_direction_10m?.[0],
+      relative_humidity_2m: h.relative_humidity_2m?.[0],
+      cloud_cover: h.cloud_cover?.[0],
+    }, null, 2));
+  } catch(e) {
+    section('Open-Meteo — ERROR', e.message, true);
+  }
+
+  status.textContent = '✓ All checks complete — use Copy buttons to share results';
+}
+
+run();
+</script>
+</body>
+</html>

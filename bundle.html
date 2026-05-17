@@ -476,7 +476,16 @@ function scoreDay({ totalPrecip=0, maxWind=0, avgHumidity=0 }) {
   return worstScore([scoreDailyPrecip(totalPrecip), scoreWind(maxWind), scoreHumidity(avgHumidity)]);
 }
 function combineHourlyParams(a, b) {
-  return { precip: Math.max(a.precip??0, b.precip??0), precipProb: Math.max(a.precipProb??0, b.precipProb??0), windKmh: Math.max(a.windKmh??0, b.windKmh??0), humidity: Math.max(a.humidity??0, b.humidity??0) };
+  const windDir = (a.windKmh??0) >= (b.windKmh??0) ? (a.windDir??0) : (b.windDir??0);
+  return {
+    precip: Math.max(a.precip??0, b.precip??0),
+    precipProb: Math.max(a.precipProb??0, b.precipProb??0),
+    windKmh: Math.max(a.windKmh??0, b.windKmh??0),
+    windDir,
+    humidity: Math.max(a.humidity??0, b.humidity??0),
+    tempC: ((a.tempC??0) + (b.tempC??0)) / 2,
+    cloudPct: Math.max(a.cloudPct??0, b.cloudPct??0),
+  };
 }
 function combineDailyParams(a, b) {
   return { totalPrecip: Math.max(a.totalPrecip??0, b.totalPrecip??0), maxWind: Math.max(a.maxWind??0, b.maxWind??0), avgHumidity: Math.max(a.avgHumidity??0, b.avgHumidity??0) };
@@ -642,8 +651,8 @@ function parseObservations(xml) {
   doc.querySelectorAll('station').forEach(el=>{
     const name=el.getAttribute('name'); if(!name) return;
     const get=a=>{ const v=el.getAttribute(a); return v!==null&&v!==''?parseFloat(v):null; };
-    stations[name]={ name, tempC:get('temp'), humidity:get('humidity'),
-      windKmh:get('windspd')!==null?get('windspd')*1.852:null, windDir:get('winddir'),
+    stations[name]={ name, tempC:get('temp'), humidity:get('rhum'),
+      windKmh:get('wdsp')!==null?get('wdsp')*1.852:null, windDir:get('wddir'),
       rainMmH:get('rain'), pressureHpa:get('msl'), weatherDesc:el.getAttribute('weatherdesc')??'' };
   });
   return stations;
@@ -670,7 +679,9 @@ function parseWarnings(xml) {
 async function fetchSunrise(lat,lon,date) {
   const key=cacheKey('sun',lat,lon,date), cached=getCached(key,TTL.sunrise);
   if (cached) return cached;
-  const resp=await fetch(`https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${lat}&lon=${lon}&date=${date}`,{headers:{'User-Agent':USER_AGENT}});
+  const offsetMins=-new Date().getTimezoneOffset();
+  const offsetStr=(offsetMins>=0?'+':'-')+String(Math.floor(Math.abs(offsetMins)/60)).padStart(2,'0')+':'+String(Math.abs(offsetMins)%60).padStart(2,'0');
+  const resp=await fetch(`https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${lat}&lon=${lon}&date=${date}&offset=${encodeURIComponent(offsetStr)}`,{headers:{'User-Agent':USER_AGENT}});
   if (!resp.ok) throw new Error(`Sunrise ${resp.status}`);
   const data=await resp.json(); setCache(key,data); return data;
 }
