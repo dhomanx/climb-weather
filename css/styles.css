@@ -309,12 +309,23 @@ footer {
 }
 .hourly-table thead th { background: var(--grey-bg); font-weight: 600; }
 .hour-time { font-weight: 600; white-space: nowrap; }
-.score-row.score-green td { background: var(--green-bg); }
-.score-row.score-amber td { background: var(--amber-bg); }
-.score-row.score-red   td { background: var(--red-bg); }
+/* Per-cell scoring — only background changes, text stays readable */
+.hourly-table td.score-green,
+.daily-table  td.score-green { background-color: var(--green-bg); color: inherit; }
+.hourly-table td.score-amber,
+.daily-table  td.score-amber { background-color: var(--amber-bg); color: inherit; }
+.hourly-table td.score-red,
+.daily-table  td.score-red   { background-color: var(--red-bg);   color: inherit; }
 .exposure-sheltered { color: var(--green-fg); font-weight: 600; }
 .exposure-exposed   { color: var(--red-fg); font-weight: 600; }
 .exposure-partial   { color: var(--amber-fg); }
+
+/* Overview note */
+.overview-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.2rem 0 0.4rem;
+}
 
 /* Daily */
 .daily-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
@@ -370,6 +381,7 @@ footer {
 .about-page { padding: 1rem 0 2rem; max-width: 680px; }
 .about-page h1 { font-size: 1.4rem; margin-bottom: 1rem; }
 .about-page h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+.about-page h3 { font-size: 0.9rem; margin: 0.75rem 0 0.25rem; color: var(--muted); font-weight: 600; }
 .about-page p  { margin-bottom: 0.5rem; font-size: 0.9rem; line-height: 1.5; }
 .about-page ul { padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.6; }
 .about-page a  { color: #1a73e8; text-decoration: underline; }

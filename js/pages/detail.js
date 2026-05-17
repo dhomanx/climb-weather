@@ -7,8 +7,9 @@ import {
   buildDailySummaries,
 } from '../api.js';
 import {
-  scoreHour, scoreDay, combineHourlyParams, combineDailyParams,
+  scoreHour, combineHourlyParams, combineDailyParams,
   dryingEstimate, windExposure, modelAgreement,
+  scorePrecip, scoreWind, scoreHumidity, scoreTemp, scoreDailyPrecip,
 } from '../scoring.js';
 import {
   formatTime, formatDate, formatDateShort, windArrow,
@@ -257,19 +258,27 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     const params = mn && om
       ? combineHourlyParams(mn, om, mode)
       : (mn ?? om);
-    const score = scoreHour(params);
+
+    const effectivePrecip = params.precipProb > 0
+      ? params.precip * (params.precipProb / 100)
+      : params.precip;
+    const precipScore  = scorePrecip(effectivePrecip);
+    const windScore    = scoreWind(params.windKmh);
+    const humidScore   = scoreHumidity(params.humidity);
+    const tempScore    = scoreTemp(params.tempC);
+
     const exposure = windExposure(params.windDir ?? 0, location.aspect);
     const exposureClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
-
     const windDeg = params.windDir ?? 0;
     const cardinal = degToCardinal(windDeg);
+
     return `
-      <tr class="score-row score-${score}">
+      <tr class="score-row">
         <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
-        <td>${params.precip.toFixed(1)}</td>
-        <td>${Math.round(params.tempC)}°</td>
-        <td class="wind-cell" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(params.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
-        <td>${Math.round(params.humidity)}</td>
+        <td class="score-${precipScore}">${params.precip.toFixed(1)}</td>
+        <td class="score-${tempScore}">${Math.round(params.tempC)}°</td>
+        <td class="wind-cell score-${windScore}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(params.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
+        <td class="score-${humidScore}">${Math.round(params.humidity)}</td>
         <td>${Math.round(params.cloudPct ?? 0)}</td>
         <td class="exposure-${exposureClass}">${exposure}</td>
       </tr>`;
@@ -316,14 +325,16 @@ function renderDailySummary(mnHourly, omHourly, mode) {
   const rows = days.map(d => {
     const om = omByDate[d.date];
     const params = om ? combineDailyParams(d, om, mode) : d;
-    const score = scoreDay(params);
+    const precipScore = scoreDailyPrecip(params.totalPrecip);
+    const windScore   = scoreWind(params.maxWind);
+    const humidScore  = scoreHumidity(params.avgHumidity);
     return `
-      <tr class="score-row score-${score}">
+      <tr class="score-row">
         <td>${formatDateShort(d.date + 'T12:00:00')}</td>
-        <td>${params.totalPrecip.toFixed(1)}mm</td>
+        <td class="score-${precipScore}">${params.totalPrecip.toFixed(1)}mm</td>
         <td>${Math.round(params.minTemp ?? 0)}–${Math.round(params.maxTemp ?? 0)}°C</td>
-        <td>${Math.round(params.maxWind)}km/h</td>
-        <td>${Math.round(params.avgHumidity)}%</td>
+        <td class="score-${windScore}">${Math.round(params.maxWind)}km/h</td>
+        <td class="score-${humidScore}">${Math.round(params.avgHumidity)}%</td>
       </tr>`;
   }).join('');
 

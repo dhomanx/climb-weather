@@ -112,27 +112,33 @@ export function windExposure(windDirectionDeg, cragAspect) {
 
 // --- internal helpers ---
 
-function scorePrecip(mm) {
+export function scorePrecip(mm) {
   if (mm === 0) return 'green';
   if (mm <= 0.5) return 'amber';
   return 'red';
 }
 
-function scoreWind(kmh) {
+export function scoreWind(kmh) {
   if (kmh < 30) return 'green';
   if (kmh <= 50) return 'amber';
   return 'red';
 }
 
-function scoreHumidity(pct) {
+export function scoreHumidity(pct) {
   if (pct < 70) return 'green';
   if (pct <= 85) return 'amber';
   return 'red';
 }
 
-function scoreDailyPrecip(mm) {
+export function scoreDailyPrecip(mm) {
   if (mm < 1) return 'green';
   if (mm <= 5) return 'amber';
+  return 'red';
+}
+
+export function scoreTemp(c) {
+  if (c >= 8 && c <= 22) return 'green';
+  if (c >= 2 && c <= 28) return 'amber';
   return 'red';
 }
 

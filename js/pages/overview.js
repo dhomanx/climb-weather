@@ -4,7 +4,7 @@ import {
   fetchObservations, parseObservations,
   buildDailySummaries, getOldestCacheTimestamp, forceRefresh,
 } from '../api.js';
-import { scoreDay, combineDailyParams } from '../scoring.js';
+import { scoreDailyPrecip, combineDailyParams } from '../scoring.js';
 import {
   applyScore, conditionIcon, formatDateShort, next7Days,
   showFreshnessBar, showToast, renderError,
@@ -99,6 +99,7 @@ export async function renderOverview(locations, params) {
       </div>
       <a href="#/about" class="mode-about-link">?</a>
     </div>
+    <p class="overview-note">Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.</p>
     <div class="table-wrapper">
       <table class="overview-table">
         <thead>
@@ -234,7 +235,7 @@ function renderLocationCells(locId, primarySummaries, days, secondarySummaries, 
       }, mode);
     }
 
-    const score = scoreDay(params);
+    const score = scoreDailyPrecip(params.totalPrecip);
     applyScore(cell, score, animate);
 
     cell.querySelector('.cell-precip').textContent = `${params.totalPrecip.toFixed(1)}mm`;

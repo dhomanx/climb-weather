@@ -66,17 +66,28 @@ function renderAbout() {
       <p>Your choice is saved on your device and applies to all locations and forecasts.</p>
 
       <h2>How is climbability scored?</h2>
-      <p>Each hour is scored green, amber, or red based on four parameters.
-      The worst parameter wins:</p>
+      <h3>Overview</h3>
+      <p>The overview grid colours each day by <strong>expected daily precipitation only</strong>:
+      under 1mm green, 1–5mm amber, over 5mm red. Wind and humidity are not included here —
+      they can vary a lot across a day and are better evaluated at the hourly level.
+      Tap any location to see the full picture.</p>
+
+      <h3>Location detail — per-parameter cell colours</h3>
+      <p>In the hourly and daily forecast tables, <strong>each cell is coloured
+      independently</strong> for its own parameter. A row can have a green rain cell and a
+      red wind cell side-by-side — you can see at a glance exactly which parameter
+      is the problem rather than guessing from a single row colour.</p>
       <ul>
         <li><strong>Precipitation</strong> — scored as <em>expected rain</em>
-        (amount × probability). 0.1mm at 100% confidence = amber, not red.
-        5mm at 100% = red. This avoids false alarms from trace drizzle.</li>
+        (hourly amount × probability). 0.1mm at 100% confidence = amber, not red.
+        5mm at 100% = red. Avoids false alarms from trace drizzle.
+        Daily totals: &lt;1mm green, 1–5mm amber, &gt;5mm red.</li>
         <li><strong>Wind</strong> — below 30km/h green; 30–50km/h amber; above 50km/h red.</li>
-        <li><strong>Humidity</strong> — below 70% green; 70–85% amber; above 85% red.
-        High humidity slows drying and makes wet rock stay wet.</li>
+        <li><strong>Humidity</strong> — below 70% green; 70–85% amber; above 85% red.</li>
+        <li><strong>Temperature</strong> — 8–22°C green; 2–28°C amber; outside that red.
+        Useful for flagging cold mornings or rare hot days where friction suffers.</li>
+        <li><strong>Cloud cover</strong> — displayed but not scored.</li>
       </ul>
-      <p>Daily scores use total daily precipitation: under 1mm green, 1–5mm amber, over 5mm red.</p>
       <p>Note: MET Norway does not provide a precipitation probability field.
       Probability in the Model Comparison panel comes from Open-Meteo only.</p>
 
