@@ -175,27 +175,34 @@ export async function fetchObservations() {
   return xml;
 }
 
+const COMPASS_DEG = {
+  'N':0,'NNE':22.5,'NE':45,'ENE':67.5,'E':90,'ESE':112.5,'SE':135,'SSE':157.5,
+  'S':180,'SSW':202.5,'SW':225,'WSW':247.5,'W':270,'WNW':292.5,'NW':315,'NNW':337.5,
+};
+function compassToDeg(s) { return s ? (COMPASS_DEG[s.trim().toUpperCase()] ?? null) : null; }
+
 export function parseObservations(xml) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'text/xml');
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
   const stations = {};
   doc.querySelectorAll('station').forEach(el => {
     const name = el.getAttribute('name');
     if (!name) return;
-    const get = attr => {
-      const v = el.getAttribute(attr);
-      return v !== null && v !== '' ? parseFloat(v) : null;
+    const getText = tag => el.querySelector(tag)?.textContent?.trim() ?? null;
+    const getNum = tag => {
+      const t = getText(tag);
+      if (!t || t === 'Trace') return null;
+      const n = parseFloat(t);
+      return isNaN(n) ? null : n;
     };
     stations[name] = {
       name,
-      tempC: get('temp'),
-      humidity: get('humidity'),
-      windKnots: get('windspd'),
-      windKmh: get('windspd') !== null ? get('windspd') * 1.852 : null,
-      windDir: get('winddir'),
-      rainMmH: get('rain'),
-      pressureHpa: get('msl'),
-      weatherDesc: el.getAttribute('weatherdesc') ?? '',
+      tempC: getNum('temp'),
+      humidity: getNum('humidity'),
+      windKmh: getNum('wind_speed') !== null ? getNum('wind_speed') * 1.852 : null,
+      windDir: compassToDeg(getText('wind_direction')),
+      rainMmH: getNum('rainfall'),
+      pressureHpa: getNum('pressure'),
+      weatherDesc: getText('weather_text') ?? '',
     };
   });
   return stations;
@@ -250,10 +257,12 @@ export async function fetchSunrise(lat, lon, date) {
   const cached = getCached(key, TTL.sunrise);
   if (cached) return cached;
 
-  const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${lat}&lon=${lon}&date=${date}`;
-  const resp = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  const offsetMins = -new Date().getTimezoneOffset();
+  const offsetStr = (offsetMins >= 0 ? '+' : '-') +
+    String(Math.floor(Math.abs(offsetMins) / 60)).padStart(2, '0') + ':' +
+    String(Math.abs(offsetMins) % 60).padStart(2, '0');
+  const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${lat}&lon=${lon}&date=${date}&offset=${encodeURIComponent(offsetStr)}`;
+  const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!resp.ok) throw new Error(`Sunrise API ${resp.status}`);
   const data = await resp.json();
   setCache(key, data);
@@ -262,12 +271,14 @@ export async function fetchSunrise(lat, lon, date) {
 
 export function parseSunrise(data) {
   const props = data?.properties ?? {};
-  return {
-    sunrise: props.sunrise?.time ?? null,
-    sunset: props.sunset?.time ?? null,
-    civilTwilightStart: props.civil_twilight_begin?.time ?? null,
-    civilTwilightEnd: props.civil_twilight_end?.time ?? null,
-  };
+  const sunrise = props.sunrise?.time ?? null;
+  const sunset = props.sunset?.time ?? null;
+  // civil_twilight not returned for Irish latitudes — estimate as ±30 min
+  const civilTwilightStart = props.civil_twilight_begin?.time ??
+    (sunrise ? new Date(new Date(sunrise).getTime() - 30 * 60000).toISOString() : null);
+  const civilTwilightEnd = props.civil_twilight_end?.time ??
+    (sunset ? new Date(new Date(sunset).getTime() + 30 * 60000).toISOString() : null);
+  return { sunrise, sunset, civilTwilightStart, civilTwilightEnd };
 }
 
 // --- Convenience: daily summary from hourly data ---

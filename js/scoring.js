@@ -29,12 +29,16 @@ export function scoreDay({ totalPrecip = 0, maxWind = 0, avgHumidity = 0 }) {
 }
 
 // When both sources are available, use the more pessimistic values per parameter
-export function combineHourlyParams(metNorway, openMeteo) {
+export function combineHourlyParams(a, b) {
+  const windDir = (a.windKmh ?? 0) >= (b.windKmh ?? 0) ? (a.windDir ?? 0) : (b.windDir ?? 0);
   return {
-    precip: Math.max(metNorway.precip ?? 0, openMeteo.precip ?? 0),
-    precipProb: Math.max(metNorway.precipProb ?? 0, openMeteo.precipProb ?? 0),
-    windKmh: Math.max(metNorway.windKmh ?? 0, openMeteo.windKmh ?? 0),
-    humidity: Math.max(metNorway.humidity ?? 0, openMeteo.humidity ?? 0),
+    precip: Math.max(a.precip ?? 0, b.precip ?? 0),
+    precipProb: Math.max(a.precipProb ?? 0, b.precipProb ?? 0),
+    windKmh: Math.max(a.windKmh ?? 0, b.windKmh ?? 0),
+    windDir,
+    humidity: Math.max(a.humidity ?? 0, b.humidity ?? 0),
+    tempC: ((a.tempC ?? 0) + (b.tempC ?? 0)) / 2,
+    cloudPct: Math.max(a.cloudPct ?? 0, b.cloudPct ?? 0),
   };
 }
 

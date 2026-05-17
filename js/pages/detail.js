@@ -176,11 +176,9 @@ function renderDaylight(sunriseData) {
   section.innerHTML = `
     <h2>Daylight</h2>
     <div class="daylight-grid">
-      <div><span class="obs-label">First light</span><span>${formatTime(civilTwilightStart)}</span></div>
       <div><span class="obs-label">Sunrise</span><span>${formatTime(sunrise)}</span></div>
       <div><span class="obs-label">Sunset</span><span>${formatTime(sunset)}</span></div>
-      <div><span class="obs-label">Last light</span><span>${formatTime(civilTwilightEnd)}</span></div>
-      ${daylightHours ? `<div><span class="obs-label">Usable daylight</span><span>${daylightHours}</span></div>` : ''}
+      ${daylightHours ? `<div><span class="obs-label">Daylight</span><span>${daylightHours}</span></div>` : ''}
     </div>`;
 }
 
