@@ -220,7 +220,6 @@ function renderHourly(location, mnHourly, omHourly) {
       <tr class="score-row score-${score}">
         <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
         <td>${params.precip.toFixed(1)}</td>
-        <td>${params.precipProb !== null ? Math.round(params.precipProb) + '%' : '—'}</td>
         <td>${Math.round(params.tempC)}°</td>
         <td class="wind-cell" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(params.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
         <td>${Math.round(params.humidity)}</td>
@@ -237,7 +236,6 @@ function renderHourly(location, mnHourly, omHourly) {
           <tr>
             <th>Time</th>
             <th>Precip mm</th>
-            <th>Prob</th>
             <th>Temp</th>
             <th>Wind km/h</th>
             <th>Hum %</th>
