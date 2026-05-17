@@ -12,7 +12,7 @@ import {
 } from '../scoring.js';
 import {
   formatTime, formatDate, formatDateShort, windArrow,
-  applyScore, scoreLabel, showToast, todayISO, next7Days,
+  applyScore, scoreLabel, showToast, todayISO, next7Days, degToCardinal,
 } from '../ui.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
@@ -214,14 +214,15 @@ function renderHourly(location, mnHourly, omHourly) {
     const exposure = windExposure(params.windDir ?? 0, location.aspect);
     const exposureClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
 
+    const windDeg = params.windDir ?? 0;
+    const cardinal = degToCardinal(windDeg);
     return `
       <tr class="score-row score-${score}">
         <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
         <td>${params.precip.toFixed(1)}</td>
         <td>${params.precipProb !== null ? Math.round(params.precipProb) + '%' : '—'}</td>
         <td>${Math.round(params.tempC)}°</td>
-        <td>${Math.round(params.windKmh)}</td>
-        <td>${Math.round(params.windDir ?? 0)}°</td>
+        <td class="wind-cell" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(params.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
         <td>${Math.round(params.humidity)}</td>
         <td>${Math.round(params.cloudPct ?? 0)}</td>
         <td class="exposure-${exposureClass}">${exposure}</td>
@@ -239,7 +240,6 @@ function renderHourly(location, mnHourly, omHourly) {
             <th>Prob</th>
             <th>Temp</th>
             <th>Wind km/h</th>
-            <th>Dir</th>
             <th>Hum %</th>
             <th>Cloud %</th>
             <th>Shelter</th>
@@ -248,6 +248,11 @@ function renderHourly(location, mnHourly, omHourly) {
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+
+  section.querySelector('.hourly-table')?.addEventListener('click', e => {
+    const cell = e.target.closest('.wind-cell');
+    if (cell) showToast(`Wind from ${cell.dataset.cardinal}`, 2000);
+  });
 }
 
 function renderDailySummary(mnHourly, omHourly) {

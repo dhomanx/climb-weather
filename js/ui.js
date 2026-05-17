@@ -52,6 +52,11 @@ export function windArrow(degrees) {
   return span;
 }
 
+const CARDINAL_DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+export function degToCardinal(deg) {
+  return CARDINAL_DIRS[Math.round((deg % 360) / 22.5) % 16];
+}
+
 export function formatTime(isoString) {
   if (!isoString) return '—';
   const d = new Date(isoString);
