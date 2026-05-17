@@ -12,6 +12,7 @@ import {
 import { groupByRegion } from '../locations.js';
 import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
+import { getMode, setMode } from '../settings.js';
 
 export async function renderOverview(locations, params) {
   // Handle ?fav= import
@@ -21,6 +22,7 @@ export async function renderOverview(locations, params) {
     if (added > 0) showToast(`${added} location${added > 1 ? 's' : ''} added to your favourites.`);
   }
 
+  const mode = getMode();
   const app = document.getElementById('app');
   app.innerHTML = '';
 
@@ -82,6 +84,15 @@ export async function renderOverview(locations, params) {
         <button id="refresh-btn" title="Force refresh all data">↻ Refresh</button>
       </div>
     </div>
+    <div class="mode-bar">
+      <span class="mode-label">I'm feeling</span>
+      <div class="mode-buttons">
+        <button class="mode-btn${mode === 'optimistic' ? ' mode-active' : ''}" data-mode="optimistic">Optimistic</button>
+        <button class="mode-btn${mode === 'balanced' ? ' mode-active' : ''}" data-mode="balanced">Balanced</button>
+        <button class="mode-btn${mode === 'pessimistic' ? ' mode-active' : ''}" data-mode="pessimistic">Pessimistic</button>
+      </div>
+      <a href="#/about" class="mode-about-link">?</a>
+    </div>
     <div class="table-wrapper">
       <table class="overview-table">
         <thead>
@@ -111,13 +122,18 @@ export async function renderOverview(locations, params) {
   });
 
   app.addEventListener('click', e => {
-    const btn = e.target.closest('.fav-star');
-    if (!btn) return;
-    const id = btn.dataset.id;
+    const modeBtn = e.target.closest('.mode-btn');
+    if (modeBtn) {
+      setMode(modeBtn.dataset.mode);
+      renderOverview(locations, new URLSearchParams());
+      return;
+    }
+    const favBtn = e.target.closest('.fav-star');
+    if (!favBtn) return;
+    const id = favBtn.dataset.id;
     const nowFav = toggleFavourite(id);
-    btn.classList.toggle('active', nowFav);
+    favBtn.classList.toggle('active', nowFav);
     showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
-    // Re-render to reorder
     renderOverview(locations, new URLSearchParams());
   });
 
@@ -125,11 +141,11 @@ export async function renderOverview(locations, params) {
   loadAndRenderWarnings(locations).catch(() => {});
 
   // Fetch forecasts progressively
-  const allFetchPromises = locations.map(loc => fetchForecastsForLocation(loc, days));
+  const allFetchPromises = locations.map(loc => fetchForecastsForLocation(loc, days, mode));
   // Each resolves independently and updates cells
 }
 
-async function fetchForecastsForLocation(loc, days) {
+async function fetchForecastsForLocation(loc, days, mode) {
   const mnPromise = fetchMetNorwayForecast(loc.lat, loc.lon)
     .then(parseMetNorwayForecast)
     .then(buildDailySummaries);
@@ -144,14 +160,14 @@ async function fetchForecastsForLocation(loc, days) {
     mnPromise.then(summaries => {
       if (!firstSource) {
         firstSource = 'mn';
-        renderLocationCells(loc.id, summaries, days, null, false);
+        renderLocationCells(loc.id, summaries, days, null, false, mode);
       }
       return summaries;
     }),
     omPromise.then(summaries => {
       if (!firstSource) {
         firstSource = 'om';
-        renderLocationCells(loc.id, summaries, days, null, false);
+        renderLocationCells(loc.id, summaries, days, null, false, mode);
       }
       return summaries;
     }),
@@ -162,10 +178,8 @@ async function fetchForecastsForLocation(loc, days) {
   const omSummaries = omResult.status === 'fulfilled' ? omResult.value : null;
 
   if (mnSummaries && omSummaries) {
-    // Both loaded — apply combined pessimistic scores
-    renderLocationCells(loc.id, mnSummaries, days, omSummaries, true);
+    renderLocationCells(loc.id, mnSummaries, days, omSummaries, true, mode);
   } else if (!mnSummaries && !omSummaries) {
-    // Both failed
     days.forEach(d => {
       const cell = document.querySelector(`.score-cell[data-loc="${loc.id}"][data-date="${d}"]`);
       if (cell) {
@@ -179,7 +193,7 @@ async function fetchForecastsForLocation(loc, days) {
   updateFreshnessBar(loc);
 }
 
-function renderLocationCells(locId, primarySummaries, days, secondarySummaries, animate) {
+function renderLocationCells(locId, primarySummaries, days, secondarySummaries, animate, mode) {
   const summaryByDate = Object.fromEntries(primarySummaries.map(s => [s.date, s]));
   const secondary = secondarySummaries
     ? Object.fromEntries(secondarySummaries.map(s => [s.date, s]))
@@ -201,7 +215,7 @@ function renderLocationCells(locId, primarySummaries, days, secondarySummaries, 
         totalPrecip: secondary[day].totalPrecip,
         maxWind: secondary[day].maxWind,
         avgHumidity: secondary[day].avgHumidity,
-      });
+      }, mode);
     }
 
     const score = scoreDay(params);

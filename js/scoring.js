@@ -10,9 +10,12 @@ const ROCK_TYPE_DRYING_MULTIPLIER = {
 };
 
 export function scoreHour({ precip = 0, precipProb = 0, windKmh = 0, humidity = 0 }) {
+  // Use expected precipitation (amount × probability) to avoid false reds from
+  // trace drizzle at high confidence. When precipProb is 0 (no prob data from
+  // MET Norway), fall back to the raw amount.
+  const effectivePrecip = precipProb > 0 ? precip * (precipProb / 100) : precip;
   const scores = [
-    scorePrecip(precip),
-    scorePrecipProb(precipProb),
+    scorePrecip(effectivePrecip),
     scoreWind(windKmh),
     scoreHumidity(humidity),
   ];
@@ -28,25 +31,37 @@ export function scoreDay({ totalPrecip = 0, maxWind = 0, avgHumidity = 0 }) {
   return worstScore(scores);
 }
 
-// When both sources are available, use the more pessimistic values per parameter
-export function combineHourlyParams(a, b) {
+export function combineHourlyParams(a, b, mode = 'pessimistic') {
+  const pick = (x, y) => {
+    const av = x ?? 0, bv = y ?? 0;
+    if (mode === 'optimistic') return Math.min(av, bv);
+    if (mode === 'balanced') return (av + bv) / 2;
+    return Math.max(av, bv);
+  };
+  // windDir follows the higher-wind source for shelter assessment
   const windDir = (a.windKmh ?? 0) >= (b.windKmh ?? 0) ? (a.windDir ?? 0) : (b.windDir ?? 0);
   return {
-    precip: Math.max(a.precip ?? 0, b.precip ?? 0),
-    precipProb: Math.max(a.precipProb ?? 0, b.precipProb ?? 0),
-    windKmh: Math.max(a.windKmh ?? 0, b.windKmh ?? 0),
+    precip: pick(a.precip, b.precip),
+    precipProb: pick(a.precipProb, b.precipProb),
+    windKmh: pick(a.windKmh, b.windKmh),
     windDir,
-    humidity: Math.max(a.humidity ?? 0, b.humidity ?? 0),
+    humidity: pick(a.humidity, b.humidity),
     tempC: ((a.tempC ?? 0) + (b.tempC ?? 0)) / 2,
-    cloudPct: Math.max(a.cloudPct ?? 0, b.cloudPct ?? 0),
+    cloudPct: pick(a.cloudPct, b.cloudPct),
   };
 }
 
-export function combineDailyParams(metNorway, openMeteo) {
+export function combineDailyParams(metNorway, openMeteo, mode = 'pessimistic') {
+  const pick = (x, y) => {
+    const av = x ?? 0, bv = y ?? 0;
+    if (mode === 'optimistic') return Math.min(av, bv);
+    if (mode === 'balanced') return (av + bv) / 2;
+    return Math.max(av, bv);
+  };
   return {
-    totalPrecip: Math.max(metNorway.totalPrecip ?? 0, openMeteo.totalPrecip ?? 0),
-    maxWind: Math.max(metNorway.maxWind ?? 0, openMeteo.maxWind ?? 0),
-    avgHumidity: Math.max(metNorway.avgHumidity ?? 0, openMeteo.avgHumidity ?? 0),
+    totalPrecip: pick(metNorway.totalPrecip, openMeteo.totalPrecip),
+    maxWind: pick(metNorway.maxWind, openMeteo.maxWind),
+    avgHumidity: pick(metNorway.avgHumidity, openMeteo.avgHumidity),
     minTemp: ((metNorway.minTemp ?? 0) + (openMeteo.minTemp ?? 0)) / 2,
     maxTemp: ((metNorway.maxTemp ?? 0) + (openMeteo.maxTemp ?? 0)) / 2,
   };
@@ -100,12 +115,6 @@ export function windExposure(windDirectionDeg, cragAspect) {
 function scorePrecip(mm) {
   if (mm === 0) return 'green';
   if (mm <= 0.5) return 'amber';
-  return 'red';
-}
-
-function scorePrecipProb(pct) {
-  if (pct < 30) return 'green';
-  if (pct <= 60) return 'amber';
   return 'red';
 }
 

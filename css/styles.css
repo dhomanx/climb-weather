@@ -405,6 +405,54 @@ footer {
 .wind-cell { cursor: pointer; white-space: nowrap; }
 .wind-cell:active { opacity: 0.6; }
 
+/* Mode selector */
+.mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0 0.6rem;
+  flex-wrap: wrap;
+}
+.mode-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.mode-buttons { display: flex; gap: 0.2rem; }
+.mode-btn {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fff;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+}
+.mode-btn:hover { border-color: var(--grey-mid); color: var(--text); }
+.mode-btn.mode-active {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+  font-weight: 600;
+}
+.mode-about-link {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none !important;
+}
+.mode-about-link:hover { border-color: var(--grey-mid); color: var(--text); }
+.mode-indicator {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--border);
+}
+.mode-indicator:hover { color: var(--text); }
+
 /* ===== Responsive ===== */
 @media (max-width: 480px) {
   .overview-controls h1 { font-size: 1.1rem; }

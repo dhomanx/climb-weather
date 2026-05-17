@@ -16,8 +16,10 @@ import {
 } from '../ui.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
+import { getMode } from '../settings.js';
 
 export async function renderDetail(location) {
+  const mode = getMode();
   const app = document.getElementById('app');
   app.innerHTML = `
     <div class="detail-header">
@@ -31,6 +33,7 @@ export async function renderDetail(location) {
         <span>${location.elevation_m}m</span>
         <span>Aspect: ${location.aspect}</span>
         <span>${capitalise(location.rock_type)}</span>
+        <a href="#/overview" class="mode-indicator" title="Change in overview">Mode: ${capitalise(mode)}</a>
       </div>
       ${location.notes ? `<p class="detail-notes">${location.notes}</p>` : ''}
       <div id="location-warnings"></div>
@@ -103,19 +106,19 @@ export async function renderDetail(location) {
 
   // Hourly (next 48h)
   if (mnHourly || omHourly) {
-    renderHourly(location, mnHourly, omHourly);
+    renderHourly(location, mnHourly, omHourly, mode);
   } else {
     document.getElementById('hourly-section').innerHTML = '<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
   }
 
   // Daily
   if (mnHourly || omHourly) {
-    renderDailySummary(mnHourly, omHourly);
+    renderDailySummary(mnHourly, omHourly, mode);
   }
 
   // Model comparison
   if (mnHourly && omHourly) {
-    renderModelComparison(mnHourly, omHourly);
+    renderModelComparison(mnHourly, omHourly, mode);
   } else {
     document.getElementById('model-section').innerHTML = '<h2>Model Comparison</h2><p>Only one data source available.</p>';
   }
@@ -182,7 +185,7 @@ function renderDaylight(sunriseData) {
     </div>`;
 }
 
-function renderHourly(location, mnHourly, omHourly) {
+function renderHourly(location, mnHourly, omHourly, mode) {
   const section = document.getElementById('hourly-section');
   const now = new Date();
   const cutoff = new Date(now.getTime() + 48 * 3600 * 1000);
@@ -208,7 +211,7 @@ function renderHourly(location, mnHourly, omHourly) {
     const mn = mnByTime[k];
     const om = omByTime[k];
     const params = mn && om
-      ? combineHourlyParams(mn, om)
+      ? combineHourlyParams(mn, om, mode)
       : (mn ?? om);
     const score = scoreHour(params);
     const exposure = windExposure(params.windDir ?? 0, location.aspect);
@@ -253,7 +256,7 @@ function renderHourly(location, mnHourly, omHourly) {
   });
 }
 
-function renderDailySummary(mnHourly, omHourly) {
+function renderDailySummary(mnHourly, omHourly, mode) {
   const section = document.getElementById('daily-section');
   const mnDays = buildDailySummaries(mnHourly ?? []);
   const omDays = buildDailySummaries(omHourly ?? []);
@@ -268,7 +271,7 @@ function renderDailySummary(mnHourly, omHourly) {
 
   const rows = days.map(d => {
     const om = omByDate[d.date];
-    const params = om ? combineDailyParams(d, om) : d;
+    const params = om ? combineDailyParams(d, om, mode) : d;
     const score = scoreDay(params);
     return `
       <tr class="score-row score-${score}">
@@ -290,7 +293,7 @@ function renderDailySummary(mnHourly, omHourly) {
     </table>`;
 }
 
-function renderModelComparison(mnHourly, omHourly) {
+function renderModelComparison(mnHourly, omHourly, mode) {
   const section = document.getElementById('model-section');
   const now = new Date();
   const cutoff = new Date(now.getTime() + 48 * 3600 * 1000);
@@ -300,7 +303,7 @@ function renderModelComparison(mnHourly, omHourly) {
   const keys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
     .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') <= cutoff)
     .sort()
-    .slice(0, 24); // First 24 hours
+    .slice(0, 24);
 
   if (!keys.length) {
     section.innerHTML = '<h2>Model Comparison</h2><p>No data.</p>';
@@ -310,6 +313,8 @@ function renderModelComparison(mnHourly, omHourly) {
   const rows = keys.map(k => {
     const mn = mnByTime[k]?.precip ?? 0;
     const om = omByTime[k]?.precip ?? 0;
+    const omProb = omByTime[k]?.precipProb;
+    const probStr = omProb !== null && omProb !== undefined ? `${Math.round(omProb)}%` : '—';
     const agreement = modelAgreement(mn, om);
     const agClass = agreement === 'Models agree — dry' ? 'agree' : agreement === 'Both predict rain' ? 'both-rain' : 'disagree';
     return `
@@ -317,16 +322,18 @@ function renderModelComparison(mnHourly, omHourly) {
         <td>${formatTime(k + ':00:00Z')}</td>
         <td>${mn.toFixed(2)}</td>
         <td>${om.toFixed(2)}</td>
+        <td>${probStr}</td>
         <td class="model-${agClass}">${agreement}</td>
       </tr>`;
   }).join('');
 
+  const modeLabels = { optimistic: 'the lower value', balanced: 'the average', pessimistic: 'the higher value' };
   section.innerHTML = `
     <h2>Model Comparison</h2>
-    <p class="model-note">Comparing precipitation forecasts from MET Norway and Open-Meteo. Where models disagree, scores use the more pessimistic value.</p>
+    <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
     <table class="model-table">
       <thead>
-        <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Agreement</th></tr>
+        <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
