@@ -1,6 +1,7 @@
 import { loadLocations, getLocation } from './locations.js';
 import { renderOverview } from './pages/overview.js';
 import { renderDetail } from './pages/detail.js';
+import { renderDebug } from './pages/debug.js';
 
 let locations = null;
 
@@ -36,6 +37,8 @@ function handleRoute() {
     }
   } else if (page === 'about') {
     renderAbout();
+  } else if (page === 'debug') {
+    renderDebug();
   } else {
     renderOverview(locations, params);
   }
