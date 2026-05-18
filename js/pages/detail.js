@@ -226,7 +226,6 @@ function renderHourly(location, mnHourly, omHourly, mode) {
   const section = document.getElementById('hourly-section');
   const now = new Date();
   const cutoff7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-  const cutoff48 = new Date(now.getTime() + 48 * 3600 * 1000);
 
   const mnByTime = Object.fromEntries((mnHourly ?? []).map(h => [h.time.slice(0, 13), h]));
   const omByTime = Object.fromEntries((omHourly ?? []).map(h => [h.time.slice(0, 13), h]));
@@ -240,26 +239,20 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     return;
   }
 
-  // Group by UTC date
-  const dayGroups = new Map();
-  for (const k of allKeys) {
-    const date = k.slice(0, 10);
-    if (!dayGroups.has(date)) dayGroups.set(date, []);
-    dayGroups.get(date).push(k);
-  }
+  // Find where MN switches from 1h to 6h entries — that's the band zone start
+  const firstBandKey = allKeys.find(k => mnByTime[k]?.interval === 6);
+  const hourlyKeys = firstBandKey ? allKeys.filter(k => k < firstBandKey) : allKeys;
+  const bandAnchors = allKeys.filter(k => k >= (firstBandKey ?? '￿') && mnByTime[k]?.interval === 6);
 
   function formatDayHeader(dateStr) {
     const d = new Date(dateStr + 'T12:00:00');
-    const weekday = d.toLocaleDateString('en-IE', { weekday: 'short' });
-    const dayMonth = d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
-    return `${weekday}<br>${dayMonth}`;
+    return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br>${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}`;
   }
 
   const REST_HEADERS = `<th>Precip<br>mm</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
 
   function hourRow(k) {
-    const mn = mnByTime[k];
-    const om = omByTime[k];
+    const mn = mnByTime[k], om = omByTime[k];
     if (!mn && !om) return '';
     const p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
     const eff = (p.precipProb ?? 0) > 0 ? p.precip * (p.precipProb / 100) : p.precip;
@@ -278,56 +271,106 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     </tr>`;
   }
 
-  function bandRow(label, bandKeys) {
-    let totalPrecip = 0, maxWind = 0, sumHum = 0, sumTemp = 0, sumCloud = 0, sumWindDir = 0, sumProb = 0, n = 0;
-    for (const k of bandKeys) {
-      const mn = mnByTime[k]; const om = omByTime[k];
-      if (!mn && !om) continue;
-      const p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
-      totalPrecip += p.precip ?? 0;
-      maxWind = Math.max(maxWind, p.windKmh ?? 0);
-      sumHum += p.humidity ?? 0; sumTemp += p.tempC ?? 0;
-      sumCloud += p.cloudPct ?? 0; sumWindDir += p.windDir ?? 0;
-      sumProb += p.precipProb ?? 0; n++;
+  function pick(a, b) {
+    if (mode === 'optimistic') return Math.min(a, b);
+    if (mode === 'pessimistic') return Math.max(a, b);
+    return (a + b) / 2;
+  }
+
+  function bandRow(anchorKey) {
+    const mn = mnByTime[anchorKey]; // precip is already the 6h total
+
+    // Collect the 6 OM hourly entries that fall inside this band
+    const omEntries = [];
+    for (let offset = 0; offset < 6; offset++) {
+      const t = new Date(anchorKey + ':00:00Z');
+      t.setUTCHours(t.getUTCHours() + offset);
+      const om = omByTime[t.toISOString().slice(0, 13)];
+      if (om) omEntries.push(om);
     }
-    if (!n) return '';
-    const avgHum = sumHum / n, avgTemp = sumTemp / n, avgCloud = sumCloud / n, avgDir = sumWindDir / n, avgProb = sumProb / n;
+
+    if (!mn && !omEntries.length) return '';
+
+    // Aggregate OM across the band
+    let omPrecip = 0, omMaxWind = 0, omSumTemp = 0, omSumHum = 0, omSumCloud = 0, omSumProb = 0;
+    for (const om of omEntries) {
+      omPrecip += om.precip ?? 0;
+      omMaxWind = Math.max(omMaxWind, om.windKmh ?? 0);
+      omSumTemp += om.tempC ?? 0;
+      omSumHum += om.humidity ?? 0;
+      omSumCloud += om.cloudPct ?? 0;
+      omSumProb += om.precipProb ?? 0;
+    }
+    const n = omEntries.length;
+    const omAvgTemp = n ? omSumTemp / n : 0;
+    const omAvgHum  = n ? omSumHum  / n : 0;
+    const omAvgCloud = n ? omSumCloud / n : 0;
+    const omAvgProb  = n ? omSumProb  / n : 0;
+    const omMidDir = omEntries[Math.floor(n / 2)]?.windDir ?? 0;
+
+    // Combine MN band values with aggregated OM values
+    let totalPrecip, maxWind, avgTemp, avgHum, avgCloud, windDir, avgProb;
+    if (mn && n) {
+      totalPrecip = pick(mn.precip, omPrecip);
+      maxWind     = pick(mn.windKmh, omMaxWind);
+      avgTemp     = (mn.tempC + omAvgTemp) / 2;
+      avgHum      = pick(mn.humidity, omAvgHum);
+      avgCloud    = pick(mn.cloudPct ?? 0, omAvgCloud);
+      windDir     = mn.windKmh >= omMaxWind ? (mn.windDir ?? 0) : omMidDir;
+      avgProb     = omAvgProb;
+    } else if (mn) {
+      totalPrecip = mn.precip; maxWind = mn.windKmh; avgTemp = mn.tempC;
+      avgHum = mn.humidity; avgCloud = mn.cloudPct ?? 0;
+      windDir = mn.windDir ?? 0; avgProb = 0;
+    } else {
+      totalPrecip = omPrecip; maxWind = omMaxWind; avgTemp = omAvgTemp;
+      avgHum = omAvgHum; avgCloud = omAvgCloud; windDir = omMidDir; avgProb = omAvgProb;
+    }
+
     const eff = avgProb > 0 ? totalPrecip * (avgProb / 100) : totalPrecip;
-    const cardinal = degToCardinal(avgDir);
-    const exposure = windExposure(avgDir, location.aspect);
+    const cardinal = degToCardinal(windDir);
+    const exposure = windExposure(windDir, location.aspect);
     const expClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
-    return `<tr class="score-row">
+
+    // Label in local time
+    const startH = new Date(anchorKey + ':00:00Z').getHours();
+    const endH = startH + 6;
+    const endDisplay = endH % 24;
+    const label = `${String(startH).padStart(2, '0')}–${endDisplay === 0 ? '24' : String(endDisplay).padStart(2, '0')}`;
+
+    return `<tr class="score-row band-row">
       <td class="hour-time">${label}</td>
       <td class="score-${scoreDailyPrecip(eff)}">${totalPrecip.toFixed(1)}</td>
       <td class="score-${scoreTemp(avgTemp)}">${Math.round(avgTemp)}°</td>
-      <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${avgDir}deg)">↑</span></td>
+      <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDir}deg)">↑</span></td>
       <td class="score-${scoreHumidity(avgHum)}">${Math.round(avgHum)}</td>
       <td>${Math.round(avgCloud)}</td>
       <td class="exposure-${expClass}">${exposure}</td>
     </tr>`;
   }
 
-  const BANDS = [['00–06', 0, 6], ['06–12', 6, 12], ['12–18', 12, 18], ['18–24', 18, 24]];
-
   let bodyHtml = '';
-  let first = true;
-  for (const [dateStr, keys] of dayGroups) {
-    if (!first) {
-      bodyHtml += `<tr class="day-header-row"><th>${formatDayHeader(dateStr)}</th>${REST_HEADERS}</tr>`;
-    }
-    first = false;
+  let currentDate = null;
 
-    if (new Date(keys[0] + ':00:00Z') < cutoff48) {
-      for (const k of keys) bodyHtml += hourRow(k);
-    } else {
-      for (const [label, start, end] of BANDS) {
-        const bk = keys.filter(k => { const h = parseInt(k.slice(11, 13), 10); return h >= start && h < end; });
-        if (bk.length) bodyHtml += bandRow(label, bk);
+  function checkDayChange(dateStr) {
+    if (dateStr !== currentDate) {
+      if (currentDate !== null) {
+        bodyHtml += `<tr class="day-header-row"><th>${formatDayHeader(dateStr)}</th>${REST_HEADERS}</tr>`;
       }
+      currentDate = dateStr;
     }
   }
 
-  const firstDate = [...dayGroups.keys()][0];
+  for (const k of hourlyKeys) {
+    checkDayChange(k.slice(0, 10));
+    bodyHtml += hourRow(k);
+  }
+  for (const k of bandAnchors) {
+    checkDayChange(k.slice(0, 10));
+    bodyHtml += bandRow(k);
+  }
+
+  const firstDate = (hourlyKeys[0] ?? bandAnchors[0] ?? '').slice(0, 10);
   section.innerHTML = `
     <h2>Hourly Forecast</h2>
     <div class="hourly-scroll">

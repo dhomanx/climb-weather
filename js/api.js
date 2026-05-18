@@ -90,9 +90,11 @@ export function parseMetNorwayForecast(data) {
     const inst = entry.data?.instant?.details ?? {};
     const next1h = entry.data?.next_1_hours?.details ?? {};
     const next6h = entry.data?.next_6_hours?.details ?? {};
-    const precip = next1h.precipitation_amount ?? next6h.precipitation_amount ?? 0;
+    const has1h = next1h.precipitation_amount !== undefined;
+    const precip = has1h ? next1h.precipitation_amount : (next6h.precipitation_amount ?? 0);
     return {
       time: entry.time,
+      interval: has1h ? 1 : 6,
       precip,
       precipProb: null, // not provided by MET Norway compact
       windKmh: (inst.wind_speed ?? 0) * 3.6,

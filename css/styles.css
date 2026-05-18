@@ -321,6 +321,7 @@ footer {
 }
 .day-header-row th { border-top: 2px solid var(--border); }
 .hour-time { font-weight: 600; white-space: nowrap; }
+.band-row td { font-style: italic; }
 /* Per-cell scoring — only background changes, text stays readable */
 .hourly-table td.score-green,
 .daily-table  td.score-green { background-color: var(--green-bg); color: inherit; }
