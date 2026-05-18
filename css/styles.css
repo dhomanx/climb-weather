@@ -156,13 +156,13 @@ footer {
   padding: 0.25rem 0.35rem;
   border: 1px solid var(--border);
   font-size: 0.85rem;
-  white-space: nowrap;
 }
 
 .overview-table thead th {
   background: var(--grey-bg);
   font-weight: 600;
   text-align: center;
+  white-space: nowrap;
 }
 
 .loc-col {
@@ -180,13 +180,11 @@ footer {
   left: 0;
   background: #fff;
   z-index: 1;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.3rem;
-  white-space: normal;
   min-width: 90px;
   width: 90px;
+  white-space: normal;
   word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .loc-name-cell a { color: var(--text); font-weight: 500; }
@@ -196,6 +194,7 @@ footer {
   text-align: center;
   min-width: 80px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .cell-precip { display: block; font-size: 0.75rem; font-weight: 600; }
