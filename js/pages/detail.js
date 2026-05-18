@@ -4,7 +4,6 @@ import {
   fetchObservations, parseObservations,
   fetchSunrise, parseSunrise,
   fetchWarnings, parseWarnings,
-  buildDailySummaries,
 } from '../api.js';
 import {
   scoreHour, combineHourlyParams, combineDailyParams,
@@ -63,13 +62,8 @@ export async function renderDetail(location) {
       </section>
 
       <section id="hourly-section" class="detail-section">
-        <h2>Hourly Forecast — Next 48 Hours</h2>
+        <h2>Hourly Forecast</h2>
         <div class="hourly-loading">Loading forecast…</div>
-      </section>
-
-      <section id="daily-section" class="detail-section">
-        <h2>Daily Summary (Days 3–7)</h2>
-        <div class="daily-loading">Loading…</div>
       </section>
 
       <section id="model-section" class="detail-section">
@@ -137,7 +131,7 @@ export async function renderDetail(location) {
 }
 
 function applyDetailMode(location, mnHourly, omHourly, mode) {
-  const sectionIds = ['hourly-section', 'daily-section', 'model-section'];
+  const sectionIds = ['hourly-section', 'model-section'];
 
   // Briefly fade sections so the user sees something happened
   sectionIds.forEach(id => {
@@ -153,8 +147,6 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
         const s = document.getElementById('hourly-section');
         if (s) s.innerHTML = '<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
       }
-
-      if (mnHourly || omHourly) renderDailySummary(mnHourly, omHourly, mode);
 
       if (mnHourly && omHourly) {
         renderModelComparison(mnHourly, omHourly, mode);
@@ -233,73 +225,115 @@ function renderDaylight(sunriseData) {
 function renderHourly(location, mnHourly, omHourly, mode) {
   const section = document.getElementById('hourly-section');
   const now = new Date();
-  const cutoff = new Date(now.getTime() + 48 * 3600 * 1000);
+  const cutoff7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+  const cutoff48 = new Date(now.getTime() + 48 * 3600 * 1000);
 
-  // Align hourly data by timestamp
   const mnByTime = Object.fromEntries((mnHourly ?? []).map(h => [h.time.slice(0, 13), h]));
   const omByTime = Object.fromEntries((omHourly ?? []).map(h => [h.time.slice(0, 13), h]));
 
-  // Build union of keys in next 48h
   const allKeys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
-    .filter(k => {
-      const d = new Date(k + ':00:00Z');
-      return d >= now && d <= cutoff;
-    })
+    .filter(k => { const d = new Date(k + ':00:00Z'); return d >= now && d < cutoff7; })
     .sort();
 
   if (!allKeys.length) {
-    section.innerHTML = '<h2>Hourly Forecast — Next 48 Hours</h2><p>No hourly data available.</p>';
+    section.innerHTML = '<h2>Hourly Forecast</h2><p>No hourly data available.</p>';
     return;
   }
 
-  const rows = allKeys.map(k => {
+  // Group by UTC date
+  const dayGroups = new Map();
+  for (const k of allKeys) {
+    const date = k.slice(0, 10);
+    if (!dayGroups.has(date)) dayGroups.set(date, []);
+    dayGroups.get(date).push(k);
+  }
+
+  function formatDayHeader(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const weekday = d.toLocaleDateString('en-IE', { weekday: 'short' });
+    const dayMonth = d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
+    return `${weekday}<br>${dayMonth}`;
+  }
+
+  const REST_HEADERS = `<th>Precip<br>mm</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
+
+  function hourRow(k) {
     const mn = mnByTime[k];
     const om = omByTime[k];
-    const params = mn && om
-      ? combineHourlyParams(mn, om, mode)
-      : (mn ?? om);
-
-    const effectivePrecip = params.precipProb > 0
-      ? params.precip * (params.precipProb / 100)
-      : params.precip;
-    const precipScore  = scorePrecip(effectivePrecip);
-    const windScore    = scoreWind(params.windKmh);
-    const humidScore   = scoreHumidity(params.humidity);
-    const tempScore    = scoreTemp(params.tempC);
-
-    const exposure = windExposure(params.windDir ?? 0, location.aspect);
-    const exposureClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
-    const windDeg = params.windDir ?? 0;
+    if (!mn && !om) return '';
+    const p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
+    const eff = (p.precipProb ?? 0) > 0 ? p.precip * (p.precipProb / 100) : p.precip;
+    const windDeg = p.windDir ?? 0;
     const cardinal = degToCardinal(windDeg);
+    const exposure = windExposure(windDeg, location.aspect);
+    const expClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
+    return `<tr class="score-row">
+      <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
+      <td class="score-${scorePrecip(eff)}">${p.precip.toFixed(1)}</td>
+      <td class="score-${scoreTemp(p.tempC)}">${Math.round(p.tempC)}°</td>
+      <td class="wind-cell score-${scoreWind(p.windKmh)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(p.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
+      <td class="score-${scoreHumidity(p.humidity)}">${Math.round(p.humidity)}</td>
+      <td>${Math.round(p.cloudPct ?? 0)}</td>
+      <td class="exposure-${expClass}">${exposure}</td>
+    </tr>`;
+  }
 
-    return `
-      <tr class="score-row">
-        <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
-        <td class="score-${precipScore}">${params.precip.toFixed(1)}</td>
-        <td class="score-${tempScore}">${Math.round(params.tempC)}°</td>
-        <td class="wind-cell score-${windScore}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(params.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
-        <td class="score-${humidScore}">${Math.round(params.humidity)}</td>
-        <td>${Math.round(params.cloudPct ?? 0)}</td>
-        <td class="exposure-${exposureClass}">${exposure}</td>
-      </tr>`;
-  }).join('');
+  function bandRow(label, bandKeys) {
+    let totalPrecip = 0, maxWind = 0, sumHum = 0, sumTemp = 0, sumCloud = 0, sumWindDir = 0, sumProb = 0, n = 0;
+    for (const k of bandKeys) {
+      const mn = mnByTime[k]; const om = omByTime[k];
+      if (!mn && !om) continue;
+      const p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
+      totalPrecip += p.precip ?? 0;
+      maxWind = Math.max(maxWind, p.windKmh ?? 0);
+      sumHum += p.humidity ?? 0; sumTemp += p.tempC ?? 0;
+      sumCloud += p.cloudPct ?? 0; sumWindDir += p.windDir ?? 0;
+      sumProb += p.precipProb ?? 0; n++;
+    }
+    if (!n) return '';
+    const avgHum = sumHum / n, avgTemp = sumTemp / n, avgCloud = sumCloud / n, avgDir = sumWindDir / n, avgProb = sumProb / n;
+    const eff = avgProb > 0 ? totalPrecip * (avgProb / 100) : totalPrecip;
+    const cardinal = degToCardinal(avgDir);
+    const exposure = windExposure(avgDir, location.aspect);
+    const expClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
+    return `<tr class="score-row">
+      <td class="hour-time">${label}</td>
+      <td class="score-${scoreDailyPrecip(eff)}">${totalPrecip.toFixed(1)}</td>
+      <td class="score-${scoreTemp(avgTemp)}">${Math.round(avgTemp)}°</td>
+      <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${avgDir}deg)">↑</span></td>
+      <td class="score-${scoreHumidity(avgHum)}">${Math.round(avgHum)}</td>
+      <td>${Math.round(avgCloud)}</td>
+      <td class="exposure-${expClass}">${exposure}</td>
+    </tr>`;
+  }
 
+  const BANDS = [['00–06', 0, 6], ['06–12', 6, 12], ['12–18', 12, 18], ['18–24', 18, 24]];
+
+  let bodyHtml = '';
+  let first = true;
+  for (const [dateStr, keys] of dayGroups) {
+    if (!first) {
+      bodyHtml += `<tr class="day-header-row"><th>${formatDayHeader(dateStr)}</th>${REST_HEADERS}</tr>`;
+    }
+    first = false;
+
+    if (new Date(keys[0] + ':00:00Z') < cutoff48) {
+      for (const k of keys) bodyHtml += hourRow(k);
+    } else {
+      for (const [label, start, end] of BANDS) {
+        const bk = keys.filter(k => { const h = parseInt(k.slice(11, 13), 10); return h >= start && h < end; });
+        if (bk.length) bodyHtml += bandRow(label, bk);
+      }
+    }
+  }
+
+  const firstDate = [...dayGroups.keys()][0];
   section.innerHTML = `
-    <h2>Hourly Forecast — Next 48 Hours</h2>
+    <h2>Hourly Forecast</h2>
     <div class="hourly-scroll">
       <table class="hourly-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Precip mm</th>
-            <th>Temp</th>
-            <th>Wind km/h</th>
-            <th>Hum %</th>
-            <th>Cloud %</th>
-            <th>Shelter</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
+        <thead><tr><th>${formatDayHeader(firstDate)}</th>${REST_HEADERS}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
       </table>
     </div>`;
 
@@ -309,44 +343,6 @@ function renderHourly(location, mnHourly, omHourly, mode) {
   });
 }
 
-function renderDailySummary(mnHourly, omHourly, mode) {
-  const section = document.getElementById('daily-section');
-  const mnDays = buildDailySummaries(mnHourly ?? []);
-  const omDays = buildDailySummaries(omHourly ?? []);
-  const omByDate = Object.fromEntries(omDays.map(d => [d.date, d]));
-
-  // Show days 3-7 (index 2-6)
-  const days = mnDays.slice(2, 7);
-  if (!days.length) {
-    section.innerHTML = '<h2>Daily Summary (Days 3–7)</h2><p>No extended forecast data.</p>';
-    return;
-  }
-
-  const rows = days.map(d => {
-    const om = omByDate[d.date];
-    const params = om ? combineDailyParams(d, om, mode) : d;
-    const precipScore = scoreDailyPrecip(params.totalPrecip);
-    const windScore   = scoreWind(params.maxWind);
-    const humidScore  = scoreHumidity(params.avgHumidity);
-    return `
-      <tr class="score-row">
-        <td>${formatDateShort(d.date + 'T12:00:00')}</td>
-        <td class="score-${precipScore}">${params.totalPrecip.toFixed(1)}mm</td>
-        <td>${Math.round(params.minTemp ?? 0)}–${Math.round(params.maxTemp ?? 0)}°C</td>
-        <td class="score-${windScore}">${Math.round(params.maxWind)}km/h</td>
-        <td class="score-${humidScore}">${Math.round(params.avgHumidity)}%</td>
-      </tr>`;
-  }).join('');
-
-  section.innerHTML = `
-    <h2>Daily Summary (Days 3–7)</h2>
-    <table class="daily-table">
-      <thead>
-        <tr><th>Day</th><th>Precip</th><th>Temp</th><th>Max Wind</th><th>Humidity</th></tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
 
 function renderModelComparison(mnHourly, omHourly, mode) {
   const section = document.getElementById('model-section');
