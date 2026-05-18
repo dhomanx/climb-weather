@@ -105,7 +105,7 @@
   },
   {
     "id": "fanore",
-    "name": "The Burren (Fanore)",
+    "name": "The Burren",
     "region": "Connacht",
     "lat": 53.1167,
     "lon": -9.2833,
@@ -235,7 +235,7 @@
   },
   {
     "id": "croagh-patrick",
-    "name": "Croagh Patrick (Corranabinnia)",
+    "name": "Croagh Patrick",
     "region": "Connacht",
     "lat": 53.7606,
     "lon": -9.6594,

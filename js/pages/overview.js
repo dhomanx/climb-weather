@@ -9,7 +9,7 @@ import {
   applyScore, conditionIcon, formatDateShort, next7Days,
   showFreshnessBar, showToast, renderError,
 } from '../ui.js';
-import { groupByRegion } from '../locations.js';
+
 import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
 import { getMode, setMode } from '../settings.js';
@@ -44,7 +44,6 @@ export async function renderOverview(locations, params) {
   const pinnedIds = new Set(favs);
   const pinned = allLocs.filter(l => pinnedIds.has(l.id));
   const rest = allLocs.filter(l => !pinnedIds.has(l.id));
-  const grouped = groupByRegion(rest);
 
   function buildRows(locs, isPinned) {
     return locs.map(loc => {
@@ -74,12 +73,8 @@ export async function renderOverview(locations, params) {
         ${buildRows(pinned, true)}
       </tbody>`;
   }
-  for (const { region, locations: locs } of grouped) {
-    tableBody += `
-      <tbody class="region-group">
-        <tr class="group-header"><td colspan="${days.length + 1}">${region}</td></tr>
-        ${buildRows(locs, false)}
-      </tbody>`;
+  if (rest.length) {
+    tableBody += `<tbody>${buildRows(rest, false)}</tbody>`;
   }
 
   app.innerHTML = `
