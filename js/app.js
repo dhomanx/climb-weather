@@ -13,7 +13,7 @@ function refreshFreshness() {
   const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k?.startsWith('icw:')) keys.push(k);
+    if (k?.startsWith('icw:mn:') || k?.startsWith('icw:om:')) keys.push(k);
   }
   showFreshnessBar(getOldestCacheTimestamp(keys));
 }

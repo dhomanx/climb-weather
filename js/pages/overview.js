@@ -2,7 +2,7 @@ import {
   fetchMetNorwayForecast, parseMetNorwayForecast,
   fetchOpenMeteoForecast, parseOpenMeteoForecast,
   fetchObservations, parseObservations,
-  buildDailySummaries, getOldestCacheTimestamp, forceRefresh,
+  buildDailySummaries, getOldestCacheTimestamp, forceRefresh, getCachedForLocation,
 } from '../api.js';
 import { scoreDailyPrecip, combineDailyParams } from '../scoring.js';
 import {
@@ -30,7 +30,16 @@ export async function renderOverview(locations, params, { preserveCache = false 
   }
 
   const mode = getMode();
-  if (!preserveCache) _locDataCache.clear();
+  if (!preserveCache) {
+    _locDataCache.clear();
+    // Synchronously pre-populate from localStorage so cells can render immediately
+    for (const loc of locations) {
+      const { mn: mnRaw, om: omRaw } = getCachedForLocation(loc.lat, loc.lon);
+      const mn = mnRaw ? buildDailySummaries(parseMetNorwayForecast(mnRaw)) : null;
+      const om = omRaw ? buildDailySummaries(parseOpenMeteoForecast(omRaw)) : null;
+      if (mn || om) _locDataCache.set(loc.id, { mn, om });
+    }
+  }
   const app = document.getElementById('app');
   app.innerHTML = '';
 
@@ -141,18 +150,25 @@ export async function renderOverview(locations, params, { preserveCache = false 
     renderOverview(locations, new URLSearchParams(), { preserveCache: true });
   }, { signal: _appClickController.signal });
 
+  // Render any cached data immediately — no loading flash for fresh locations
+  for (const [locId, { mn, om }] of _locDataCache) {
+    if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, false, mode);
+  }
+
   // Load warnings in parallel (non-blocking)
   loadAndRenderWarnings(locations).catch(() => {});
 
-  if (preserveCache) {
-    // Re-apply existing cached data to freshly rendered cells
-    for (const [locId, { mn, om }] of _locDataCache) {
-      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, false, mode);
+  if (!preserveCache) {
+    // Background-fetch only locations missing fresh data for either source
+    const locsNeedingFetch = locations.filter(loc => {
+      const c = _locDataCache.get(loc.id);
+      return !c?.mn || !c?.om;
+    });
+    if (locsNeedingFetch.length > 0) {
+      locsNeedingFetch.forEach(loc => fetchForecastsForLocation(loc, days, mode));
+    } else {
+      updateFreshnessBar();
     }
-  } else {
-    // Fetch forecasts progressively
-    const allFetchPromises = locations.map(loc => fetchForecastsForLocation(loc, days, mode));
-    // Each resolves independently and updates cells
   }
 }
 
@@ -253,12 +269,10 @@ function scoreLabel(score) {
 }
 
 function updateFreshnessBar() {
-  // Collect all icw: timestamps
   const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k?.startsWith('icw:')) keys.push(k);
+    if (k?.startsWith('icw:mn:') || k?.startsWith('icw:om:')) keys.push(k);
   }
-  const ts = getOldestCacheTimestamp(keys);
-  showFreshnessBar(ts);
+  showFreshnessBar(getOldestCacheTimestamp(keys));
 }

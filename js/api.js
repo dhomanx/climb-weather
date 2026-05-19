@@ -60,6 +60,13 @@ export function getOldestCacheTimestamp(keys) {
 
 const DATA_CACHE_PREFIXES = ['icw:mn:', 'icw:om:', 'icw:obs', 'icw:warn', 'icw:sun:'];
 
+export function getCachedForLocation(lat, lon) {
+  return {
+    mn: getCached(cacheKey('mn', lat, lon), TTL.metNorway),
+    om: getCached(cacheKey('om', lat, lon), TTL.openMeteo),
+  };
+}
+
 export function forceRefresh() {
   const toRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
