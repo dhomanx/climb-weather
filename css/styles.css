@@ -513,10 +513,10 @@ footer {
 }
 .mode-btn:hover { border-color: var(--grey-mid); color: var(--text); }
 .mode-btn.mode-active {
-  background: var(--text);
-  color: #fff;
+  background: #fff;
+  color: var(--text);
   border-color: var(--text);
-  font-weight: 600;
+  border-width: 2px;
 }
 .mode-about-link {
   font-size: 0.75rem;
