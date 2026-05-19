@@ -87,7 +87,7 @@ export async function renderOverview(locations, params) {
     <div class="overview-filters">
       <button id="daytime-btn" class="daytime-btn${_daytimeOnly ? ' daytime-active' : ''}">☀ Daytime only (10am–8pm)</button>
     </div>
-    <p class="overview-note" id="overview-note">${_daytimeOnly ? 'Rain shown is 10am–8pm only (prime climbing hours). Tap any location for full conditions.' : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.'}</p>
+    <p class="overview-note" id="overview-note">${_daytimeOnly ? 'Rain shown is 10am–8pm only. Tap any location for full conditions.' : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.'}</p>
     <div class="table-wrapper">
       <table class="overview-table">
         <thead>
@@ -121,7 +121,7 @@ export async function renderOverview(locations, params) {
     localStorage.setItem('icw:daytimeOnly', _daytimeOnly);
     document.getElementById('daytime-btn').classList.toggle('daytime-active', _daytimeOnly);
     document.getElementById('overview-note').textContent = _daytimeOnly
-      ? 'Rain shown is 10am–8pm only (prime climbing hours). Tap any location for full conditions.'
+      ? 'Rain shown is 10am–8pm only. Tap any location for full conditions.'
       : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.';
     const mode = getMode();
     for (const [locId, { mn, om }] of _locDataCache) {
