@@ -44,7 +44,7 @@ button { cursor: pointer; font-family: var(--font); }
   position: sticky;
   top: 0;
   z-index: 200;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 .sticky-bar-inner {
@@ -373,7 +373,7 @@ footer {
   white-space: nowrap;
   position: sticky;
   left: 0;
-  background: #fff;
+  background: var(--surface);
   z-index: 1;
 }
 .band-row td { font-style: italic; }
@@ -395,7 +395,7 @@ footer {
   padding: 0.25rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--surface);
   font-size: 0.78rem;
   color: var(--muted);
   cursor: pointer;
@@ -538,7 +538,7 @@ footer {
 }
 .mode-btn:hover { border-color: var(--grey-mid); color: var(--text); }
 .mode-btn.mode-active {
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border-color: var(--text);
   border-width: 2px;
@@ -569,7 +569,7 @@ footer {
 }
 .bar-modal[hidden] { display: none; }
 .bar-modal-box {
-  background: #fff;
+  background: var(--surface);
   border-radius: 0.75rem;
   padding: 1.25rem 1.5rem 1.5rem;
   max-width: 340px;
@@ -648,8 +648,6 @@ footer {
   .warning-red    { background: #2a0000; border-color: #b71c1c; }
 
   .pinned-header td { background: #1e1b00; color: #ffd54f; }
-
-  .mode-btn.mode-active { background: #e0e0e0; color: #121212; border-color: #e0e0e0; }
 
   .precip-bar { background: #64b5f6; }
 
