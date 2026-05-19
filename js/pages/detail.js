@@ -364,35 +364,71 @@ function renderHourly(location, mnHourly, omHourly, mode) {
 function renderModelComparison(mnHourly, omHourly, mode) {
   const section = document.getElementById('model-section');
   const now = new Date();
-  const cutoff = new Date(now.getTime() + 48 * 3600 * 1000);
+  const cutoff7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
   const mnByTime = Object.fromEntries(mnHourly.map(h => [h.time.slice(0, 13), h]));
   const omByTime = Object.fromEntries(omHourly.map(h => [h.time.slice(0, 13), h]));
-  const keys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
-    .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') <= cutoff)
+
+  const allKeys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
+    .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') < cutoff7)
     .sort();
 
-  if (!keys.length) {
+  if (!allKeys.length) {
     section.innerHTML = '<details class="model-details"><summary>Model Comparison</summary><p>No data.</p></details>';
     return;
   }
 
-  const rows = keys.map(k => {
+  // Mirror the hourly table's split: 1h entries up to the first MN 6h band anchor
+  const firstBandKey = allKeys.find(k => mnByTime[k]?.interval === 6);
+  const hourlyKeys = firstBandKey ? allKeys.filter(k => k < firstBandKey) : allKeys;
+  const bandAnchors = allKeys.filter(k => k >= (firstBandKey ?? '￿') && mnByTime[k]?.interval === 6);
+
+  const rows = [];
+
+  for (const k of hourlyKeys) {
     const mn = mnByTime[k]?.precip ?? 0;
     const om = omByTime[k]?.precip ?? 0;
     const omProb = omByTime[k]?.precipProb;
-    const probStr = omProb !== null && omProb !== undefined ? `${Math.round(omProb)}%` : '—';
+    const probStr = omProb != null ? `${Math.round(omProb)}%` : '—';
     const agreement = modelAgreement(mn, om);
     const agClass = agreement === 'Models agree — dry' ? 'agree' : agreement === 'Both predict rain' ? 'both-rain' : 'disagree';
-    return `
-      <tr>
-        <td>${formatTime(k + ':00:00Z')}</td>
-        <td>${mn.toFixed(2)}</td>
-        <td>${om.toFixed(2)}</td>
-        <td>${probStr}</td>
-        <td class="model-${agClass}">${agreement}</td>
-      </tr>`;
-  }).join('');
+    rows.push(`<tr>
+      <td>${formatTime(k + ':00:00Z')}</td>
+      <td>${mn.toFixed(2)}</td>
+      <td>${om.toFixed(2)}</td>
+      <td>${probStr}</td>
+      <td class="model-${agClass}">${agreement}</td>
+    </tr>`);
+  }
+
+  for (const k of bandAnchors) {
+    const mn = mnByTime[k]?.precip ?? 0;
+    // Aggregate OM over the same 6h window so the comparison is like-for-like
+    let omPrecip = 0, omProbSum = 0, omProbCount = 0;
+    for (let offset = 0; offset < 6; offset++) {
+      const t = new Date(k + ':00:00Z');
+      t.setUTCHours(t.getUTCHours() + offset);
+      const om = omByTime[t.toISOString().slice(0, 13)];
+      if (om) {
+        omPrecip += om.precip ?? 0;
+        if (om.precipProb != null) { omProbSum += om.precipProb; omProbCount++; }
+      }
+    }
+    const omAvgProb = omProbCount ? omProbSum / omProbCount : null;
+    const probStr = omAvgProb != null ? `${Math.round(omAvgProb)}%` : '—';
+    const agreement = modelAgreement(mn, omPrecip);
+    const agClass = agreement === 'Models agree — dry' ? 'agree' : agreement === 'Both predict rain' ? 'both-rain' : 'disagree';
+    const startH = new Date(k + ':00:00Z').getHours();
+    const endH = (startH + 6) % 24;
+    const label = `${String(startH).padStart(2, '0')}–${endH === 0 ? '24' : String(endH).padStart(2, '0')}`;
+    rows.push(`<tr class="band-row">
+      <td>${label}</td>
+      <td>${mn.toFixed(2)}</td>
+      <td>${omPrecip.toFixed(2)}</td>
+      <td>${probStr}</td>
+      <td class="model-${agClass}">${agreement}</td>
+    </tr>`);
+  }
 
   const modeLabels = { optimistic: 'the lower value', balanced: 'the average', pessimistic: 'the higher value' };
   section.innerHTML = `
@@ -403,7 +439,7 @@ function renderModelComparison(mnHourly, omHourly, mode) {
         <thead>
           <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${rows.join('')}</tbody>
       </table>
     </details>`;
 }
