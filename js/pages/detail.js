@@ -93,11 +93,11 @@ export async function renderDetail(location) {
   const warnContainer = document.getElementById('location-warnings');
   if (warnContainer) renderLocationWarnings(warnContainer, warnings, location.county);
 
-  // Update freshness bar now that detail fetches have landed
+  // Update freshness bar — forecast keys only (warnings/observations have different TTLs)
   const cacheKeys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k?.startsWith('icw:')) cacheKeys.push(k);
+    if (k?.startsWith('icw:mn:') || k?.startsWith('icw:om:')) cacheKeys.push(k);
   }
   showFreshnessBar(getOldestCacheTimestamp(cacheKeys));
 
