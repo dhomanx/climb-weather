@@ -264,7 +264,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br><span style="white-space:nowrap">${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>`;
   }
 
-  const REST_HEADERS = `<th>Precip<br>mm</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
+  const REST_HEADERS = `<th>Precip<br>mm</th><th>Prob<br>%</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
 
   function hourRow(k) {
     const mn = mnByTime[k], om = omByTime[k];
@@ -275,9 +275,12 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     const cardinal = degToCardinal(windDeg);
     const exposure = windExposure(windDeg, location.aspect);
     const expClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
+    const omProb = om?.precipProb;
+    const probStr = omProb != null ? `${Math.round(omProb)}` : '—';
     return `<tr class="score-row">
       <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
       <td class="score-${scorePrecip(eff)}">${p.precip.toFixed(1)}</td>
+      <td class="prob-cell">${probStr}</td>
       <td class="score-${scoreTemp(p.tempC)}">${Math.round(p.tempC)}°</td>
       <td class="wind-cell score-${scoreWind(p.windKmh)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(p.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
       <td class="score-${scoreHumidity(p.humidity)}">${Math.round(p.humidity)}</td>
@@ -353,9 +356,11 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     const endDisplay = endH % 24;
     const label = `${String(startH).padStart(2, '0')}–${endDisplay === 0 ? '24' : String(endDisplay).padStart(2, '0')}`;
 
+    const bandProbStr = avgProb > 0 ? `${Math.round(avgProb)}` : '—';
     return `<tr class="score-row band-row">
       <td class="hour-time">${label}</td>
       <td class="score-${scoreDailyPrecip(eff)}">${totalPrecip.toFixed(1)}</td>
+      <td class="prob-cell">${bandProbStr}</td>
       <td class="score-${scoreTemp(avgTemp)}">${Math.round(avgTemp)}°</td>
       <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDir}deg)">↑</span></td>
       <td class="score-${scoreHumidity(avgHum)}">${Math.round(avgHum)}</td>
@@ -388,6 +393,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
   const firstDate = (hourlyKeys[0] ?? bandAnchors[0] ?? '').slice(0, 10);
   section.innerHTML = `
     <h2>Hourly Forecast</h2>
+    <p class="hourly-note">Prob % from Open-Meteo only.</p>
     <div class="hourly-scroll">
       <table class="hourly-table">
         <thead><tr><th>${formatDayHeader(firstDate)}</th>${REST_HEADERS}</tr></thead>
