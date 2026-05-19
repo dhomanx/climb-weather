@@ -4,14 +4,25 @@ import { renderDetail } from './pages/detail.js';
 import { renderDebug } from './pages/debug.js';
 import { getMode, setMode } from './settings.js';
 import { triggerModeChange } from './events.js';
+import { showFreshnessBar } from './ui.js';
+import { getOldestCacheTimestamp } from './api.js';
 
 let locations = null;
+
+function refreshFreshness() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('icw:')) keys.push(k);
+  }
+  showFreshnessBar(getOldestCacheTimestamp(keys));
+}
 
 async function init() {
   locations = await loadLocations();
   initStickyBar();
   handleRoute();
-  window.addEventListener('hashchange', handleRoute);
+  window.addEventListener('hashchange', () => { handleRoute(); refreshFreshness(); });
 
   document.getElementById('refresh-footer-btn')?.addEventListener('click', () => {
     import('./api.js').then(({ forceRefresh }) => {
@@ -22,6 +33,7 @@ async function init() {
 }
 
 function initStickyBar() {
+  refreshFreshness(); // show cached state immediately on load
   const current = getMode();
   document.querySelectorAll('#sticky-bar .mode-btn').forEach(btn => {
     btn.classList.toggle('mode-active', btn.dataset.mode === current);

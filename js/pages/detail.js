@@ -13,7 +13,9 @@ import {
 import {
   formatTime, formatDate, formatDateShort, windArrow,
   applyScore, scoreLabel, showToast, todayISO, next7Days, degToCardinal,
+  showFreshnessBar,
 } from '../ui.js';
+import { getOldestCacheTimestamp } from '../api.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
 import { getMode } from '../settings.js';
@@ -99,6 +101,14 @@ export async function renderDetail(location) {
   // Warnings for this county
   const warnContainer = document.getElementById('location-warnings');
   if (warnContainer) renderLocationWarnings(warnContainer, warnings, location.county);
+
+  // Update freshness bar now that detail fetches have landed
+  const cacheKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('icw:')) cacheKeys.push(k);
+  }
+  showFreshnessBar(getOldestCacheTimestamp(cacheKeys));
 
   // Observations and daylight don't depend on mode
   renderObservations(location, observations);
