@@ -285,6 +285,14 @@ footer {
   margin-bottom: 0.5rem;
 }
 
+.sun-times {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
 .detail-notes {
   font-size: 0.9rem;
   color: var(--muted);

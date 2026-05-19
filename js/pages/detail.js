@@ -34,6 +34,7 @@ export async function renderDetail(location) {
         <h1>${location.name}</h1>
         <button class="fav-star ${isFavourite(location.id) ? 'active' : ''}" id="detail-fav-btn" title="Favourite">★</button>
       </div>
+      <div id="sun-times" class="sun-times"></div>
       <div class="detail-meta">
         <span>${location.region}</span>
         <span>${location.elevation_m}m</span>
@@ -50,10 +51,6 @@ export async function renderDetail(location) {
         <div class="obs-loading">Loading observations…</div>
       </section>
 
-      <section id="daylight-section" class="detail-section">
-        <h2>Daylight</h2>
-        <div class="daylight-loading">Loading…</div>
-      </section>
 
       <section id="hourly-section" class="detail-section">
         <h2>Hourly Forecast</h2>
@@ -192,28 +189,11 @@ function renderObservations(location, observations) {
 }
 
 function renderDaylight(sunriseData) {
-  const section = document.getElementById('daylight-section');
-  if (!sunriseData) {
-    section.innerHTML = '<h2>Daylight</h2><p class="error-state">Sunrise data unavailable.</p>';
-    return;
-  }
-  const { sunrise, sunset, civilTwilightStart, civilTwilightEnd } = sunriseData;
-  const usableStart = civilTwilightStart ?? sunrise;
-  const usableEnd = civilTwilightEnd ?? sunset;
-  let daylightHours = '';
-  if (usableStart && usableEnd) {
-    const mins = (new Date(usableEnd) - new Date(usableStart)) / 60000;
-    const h = Math.floor(mins / 60);
-    const m = Math.round(mins % 60);
-    daylightHours = `${h}h ${m}m`;
-  }
-  section.innerHTML = `
-    <h2>Daylight</h2>
-    <div class="daylight-grid">
-      <div><span class="obs-label">Sunrise</span><span>${formatTime(sunrise)}</span></div>
-      <div><span class="obs-label">Sunset</span><span>${formatTime(sunset)}</span></div>
-      ${daylightHours ? `<div><span class="obs-label">Daylight</span><span>${daylightHours}</span></div>` : ''}
-    </div>`;
+  const el = document.getElementById('sun-times');
+  if (!el) return;
+  if (!sunriseData) return;
+  const { sunrise, sunset } = sunriseData;
+  el.innerHTML = `<span>🌅 ${formatTime(sunrise)}</span><span>🌇 ${formatTime(sunset)}</span>`;
 }
 
 function renderHourly(location, mnHourly, omHourly, mode) {
