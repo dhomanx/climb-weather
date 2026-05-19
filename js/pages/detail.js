@@ -276,7 +276,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     const exposure = windExposure(windDeg, location.aspect);
     const expClass = exposure === 'Sheltered' ? 'sheltered' : exposure === 'Exposed' ? 'exposed' : 'partial';
     const omProb = om?.precipProb;
-    const probStr = omProb != null ? `${Math.round(omProb)}` : '—';
+    const probStr = (omProb != null && p.precip >= 0.05) ? `${Math.round(omProb)}` : '—';
     return `<tr class="score-row">
       <td class="hour-time">${formatTime(k + ':00:00Z')}</td>
       <td class="score-${scorePrecip(eff)}">${p.precip.toFixed(1)}</td>
@@ -356,7 +356,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
     const endDisplay = endH % 24;
     const label = `${String(startH).padStart(2, '0')}–${endDisplay === 0 ? '24' : String(endDisplay).padStart(2, '0')}`;
 
-    const bandProbStr = avgProb > 0 ? `${Math.round(avgProb)}` : '—';
+    const bandProbStr = (avgProb > 0 && totalPrecip >= 0.05) ? `${Math.round(avgProb)}` : '—';
     return `<tr class="score-row band-row">
       <td class="hour-time">${label}</td>
       <td class="score-${scoreDailyPrecip(eff)}">${totalPrecip.toFixed(1)}</td>
