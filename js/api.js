@@ -58,11 +58,13 @@ export function getOldestCacheTimestamp(keys) {
   return oldest;
 }
 
+const DATA_CACHE_PREFIXES = ['icw:mn:', 'icw:om:', 'icw:obs', 'icw:warn', 'icw:sun:'];
+
 export function forceRefresh() {
   const toRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith('icw:')) toRemove.push(k);
+    if (k && DATA_CACHE_PREFIXES.some(p => k.startsWith(p))) toRemove.push(k);
   }
   toRemove.forEach(k => localStorage.removeItem(k));
 }
