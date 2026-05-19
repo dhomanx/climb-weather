@@ -2,11 +2,14 @@ import { loadLocations, getLocation } from './locations.js';
 import { renderOverview } from './pages/overview.js';
 import { renderDetail } from './pages/detail.js';
 import { renderDebug } from './pages/debug.js';
+import { getMode, setMode } from './settings.js';
+import { triggerModeChange } from './events.js';
 
 let locations = null;
 
 async function init() {
   locations = await loadLocations();
+  initStickyBar();
   handleRoute();
   window.addEventListener('hashchange', handleRoute);
 
@@ -14,6 +17,20 @@ async function init() {
     import('./api.js').then(({ forceRefresh }) => {
       forceRefresh();
       handleRoute();
+    });
+  });
+}
+
+function initStickyBar() {
+  const current = getMode();
+  document.querySelectorAll('#sticky-bar .mode-btn').forEach(btn => {
+    btn.classList.toggle('mode-active', btn.dataset.mode === current);
+    btn.addEventListener('click', () => {
+      const newMode = btn.dataset.mode;
+      setMode(newMode);
+      document.querySelectorAll('#sticky-bar .mode-btn').forEach(b =>
+        b.classList.toggle('mode-active', b.dataset.mode === newMode));
+      triggerModeChange(newMode);
     });
   });
 }

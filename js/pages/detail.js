@@ -16,7 +16,8 @@ import {
 } from '../ui.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
-import { getMode, setMode } from '../settings.js';
+import { getMode } from '../settings.js';
+import { registerModeHandler } from '../events.js';
 
 // Module-level state so mode changes can re-render sections without re-fetching
 let _detailState = null; // { locId, location, mnHourly, omHourly }
@@ -36,15 +37,6 @@ export async function renderDetail(location) {
         <span>${location.elevation_m}m</span>
         <span>Aspect: ${location.aspect}</span>
         <span>${capitalise(location.rock_type)}</span>
-      </div>
-      <div class="mode-bar">
-        <span class="mode-label">I'm feeling</span>
-        <div class="mode-buttons">
-          <button class="mode-btn${mode === 'optimistic' ? ' mode-active' : ''}" data-mode="optimistic">Optimistic</button>
-          <button class="mode-btn${mode === 'balanced' ? ' mode-active' : ''}" data-mode="balanced">Balanced</button>
-          <button class="mode-btn${mode === 'pessimistic' ? ' mode-active' : ''}" data-mode="pessimistic">Pessimistic</button>
-        </div>
-        <a href="#/about" class="mode-about-link">?</a>
       </div>
       ${location.notes ? `<p class="detail-notes">${location.notes}</p>` : ''}
       <div id="location-warnings"></div>
@@ -83,16 +75,8 @@ export async function renderDetail(location) {
     showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
   });
 
-  document.querySelectorAll('.detail-header .mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const newMode = btn.dataset.mode;
-      setMode(newMode);
-      document.querySelectorAll('.detail-header .mode-btn').forEach(b =>
-        b.classList.toggle('mode-active', b.dataset.mode === newMode));
-      if (_detailState?.locId === location.id) {
-        applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, newMode);
-      }
-    });
+  registerModeHandler(newMode => {
+    if (_detailState) applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, newMode);
   });
 
   const today = todayISO();

@@ -12,7 +12,8 @@ import {
 
 import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
-import { getMode, setMode } from '../settings.js';
+import { getMode } from '../settings.js';
+import { registerModeHandler } from '../events.js';
 
 // Module-level cache so mode changes can re-score without re-fetching
 let _currentDays = [];
@@ -80,19 +81,7 @@ export async function renderOverview(locations, params) {
   app.innerHTML = `
     <div class="overview-controls">
       <h1>Irish Climbing Weather</h1>
-      <div class="control-buttons">
-        ${favs.length ? `<button id="share-favs-btn">Share Favourites</button>` : ''}
-        <button id="refresh-btn" title="Force refresh all data">↻ Refresh</button>
-      </div>
-    </div>
-    <div class="mode-bar">
-      <span class="mode-label">I'm feeling</span>
-      <div class="mode-buttons">
-        <button class="mode-btn${mode === 'optimistic' ? ' mode-active' : ''}" data-mode="optimistic">Optimistic</button>
-        <button class="mode-btn${mode === 'balanced' ? ' mode-active' : ''}" data-mode="balanced">Balanced</button>
-        <button class="mode-btn${mode === 'pessimistic' ? ' mode-active' : ''}" data-mode="pessimistic">Pessimistic</button>
-      </div>
-      <a href="#/about" class="mode-about-link">?</a>
+      ${favs.length ? `<button id="share-favs-btn">Share Favourites</button>` : ''}
     </div>
     <p class="overview-note">Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.</p>
     <div class="table-wrapper">
@@ -108,12 +97,6 @@ export async function renderOverview(locations, params) {
     </div>`;
 
   // Wire up controls
-  document.getElementById('refresh-btn')?.addEventListener('click', async () => {
-    forceRefresh();
-    showToast('Refreshing data…');
-    await renderOverview(locations, new URLSearchParams());
-  });
-
   document.getElementById('share-favs-btn')?.addEventListener('click', () => {
     const url = shareFavourites();
     if (url) {
@@ -123,20 +106,13 @@ export async function renderOverview(locations, params) {
     }
   });
 
-  app.addEventListener('click', e => {
-    const modeBtn = e.target.closest('.mode-btn');
-    if (modeBtn) {
-      const newMode = modeBtn.dataset.mode;
-      setMode(newMode);
-      // Update button states immediately
-      document.querySelectorAll('.mode-btn').forEach(b =>
-        b.classList.toggle('mode-active', b.dataset.mode === newMode));
-      // Re-score all cached locations — no DOM rebuild, no grey flash
-      for (const [locId, { mn, om }] of _locDataCache) {
-        if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, newMode);
-      }
-      return;
+  registerModeHandler(newMode => {
+    for (const [locId, { mn, om }] of _locDataCache) {
+      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, newMode);
     }
+  });
+
+  app.addEventListener('click', e => {
     const favBtn = e.target.closest('.fav-star');
     if (!favBtn) return;
     const id = favBtn.dataset.id;

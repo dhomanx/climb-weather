@@ -10,6 +10,23 @@
 </head>
 <body>
   <div id="warnings-banner" role="alert" aria-live="polite"></div>
+  <div id="sticky-bar">
+    <div class="sticky-bar-inner">
+      <div class="sticky-mode">
+        <span class="mode-label">Feeling</span>
+        <div class="mode-buttons">
+          <button class="mode-btn" data-mode="optimistic">Opt</button>
+          <button class="mode-btn" data-mode="balanced">Bal</button>
+          <button class="mode-btn" data-mode="pessimistic">Pes</button>
+        </div>
+        <a href="#/about" class="mode-about-link">?</a>
+      </div>
+      <div class="sticky-freshness">
+        <span id="freshness-time">—</span>
+        <button id="refresh-footer-btn" title="Force refresh all data" aria-label="Refresh data">↻</button>
+      </div>
+    </div>
+  </div>
   <main>
     <div id="app">
       <p style="padding:2rem;color:#666">Loading…</p>
@@ -22,10 +39,7 @@
       <a href="https://www.met.ie" target="_blank" rel="noopener">Met Éireann</a> ·
       <a href="#/about">About &amp; Attribution</a>
     </span>
-    <span class="freshness">
-      Data last loaded: <span id="freshness-time">—</span>
-      <button id="refresh-footer-btn" title="Force refresh all data" aria-label="Refresh data">↻</button>
-    </span>
+    <span class="freshness">Data: <span id="freshness-footer">—</span></span>
   </footer>
   <script type="module" src="js/app.js"></script>
 </body>
