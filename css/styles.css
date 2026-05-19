@@ -24,7 +24,7 @@ html { font-size: 16px; }
 body {
   font-family: var(--font);
   color: var(--text);
-  background: hotpink;
+  background: #fff;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -308,7 +308,7 @@ footer {
 .hourly-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .hourly-table { border-collapse: collapse; min-width: 560px; width: 100%; font-size: 0.82rem; }
 .hourly-table th, .hourly-table td {
-  padding: 0.2rem 0.35rem;
+  padding: 0.1rem 0.2rem;
   border: 1px solid var(--border);
   text-align: center;
 }
