@@ -46,11 +46,10 @@ export async function renderDetail(location) {
     </div>
 
     <div class="detail-body">
-      <section id="current-obs" class="detail-section">
-        <h2>Current Conditions</h2>
-        <div class="obs-loading">Loading observations…</div>
+      <section id="now-section" class="detail-section">
+        <div class="now-header"><h2>Now</h2></div>
+        <div class="now-loading">Loading…</div>
       </section>
-
 
       <section id="hourly-section" class="detail-section">
         <h2>Hourly Forecast</h2>
@@ -60,11 +59,6 @@ export async function renderDetail(location) {
       <section id="model-section" class="detail-section">
         <h2>Model Comparison</h2>
         <div class="model-loading">Loading…</div>
-      </section>
-
-      <section id="drying-section" class="detail-section">
-        <h2>Recent Rainfall &amp; Drying Estimate</h2>
-        <div class="drying-loading">Loading…</div>
       </section>
     </div>`;
 
@@ -107,18 +101,15 @@ export async function renderDetail(location) {
   }
   showFreshnessBar(getOldestCacheTimestamp(cacheKeys));
 
-  // Observations and daylight don't depend on mode
-  renderObservations(location, observations);
+  // Daylight and Now don't depend on mode
   renderDaylight(sunriseData);
+  renderNow(location, observations, mnHourly ?? omHourly);
 
   // Store state now so mode buttons can re-render sections instantly
   _detailState = { locId: location.id, location, mnHourly, omHourly };
 
   // Use getMode() at call time — picks up any mode change made while loading
   applyDetailMode(location, mnHourly, omHourly, getMode());
-
-  // Drying estimate doesn't depend on mode
-  renderDryingEstimate(location, mnHourly ?? omHourly);
 }
 
 function applyDetailMode(location, mnHourly, omHourly, mode) {
@@ -143,7 +134,7 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
         renderModelComparison(mnHourly, omHourly, mode);
       } else {
         const s = document.getElementById('model-section');
-        if (s) s.innerHTML = '<h2>Model Comparison</h2><p>Only one data source available.</p>';
+        if (s) s.innerHTML = '<details class="model-details"><summary>Model Comparison</summary><p>Only one data source available.</p></details>';
       }
 
       // Clear fade (sections were replaced but the section elements remain)
@@ -155,37 +146,87 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
   });
 }
 
-function renderObservations(location, observations) {
-  const section = document.getElementById('current-obs');
-  if (!observations) {
-    section.innerHTML = '<h2>Current Conditions</h2><p class="error-state">Observations unavailable.</p>';
-    return;
-  }
-  const obs = observations[location.nearest_station];
-  if (!obs) {
-    section.innerHTML = `<h2>Current Conditions</h2><p class="muted">No data for station: ${location.nearest_station}</p>`;
-    return;
+function renderNow(location, observations, hourly) {
+  const section = document.getElementById('now-section');
+
+  // --- Observations ---
+  let scoreHtml = '';
+  let metricsHtml = '';
+
+  const obs = observations?.[location.nearest_station];
+  if (obs) {
+    const score = scoreHour({
+      precip: obs.rainMmH ?? 0,
+      precipProb: 0,
+      windKmh: obs.windKmh ?? 0,
+      humidity: obs.humidity ?? 0,
+    });
+    scoreHtml = `<div class="score-pill score-${score}">${scoreLabel(score)}</div>`;
+    const parts = [
+      obs.weatherDesc || null,
+      obs.tempC !== null ? `${obs.tempC}°C` : null,
+      obs.rainMmH !== null ? `${obs.rainMmH}mm/h` : null,
+      obs.windKmh !== null ? `${Math.round(obs.windKmh)}km/h` : null,
+      obs.humidity !== null ? `${obs.humidity}%` : null,
+    ].filter(Boolean);
+    metricsHtml = `<p class="now-metrics">${parts.join(' · ')}</p>`;
   }
 
-  const score = scoreHour({
-    precip: obs.rainMmH ?? 0,
-    precipProb: 0,
-    windKmh: obs.windKmh ?? 0,
-    humidity: obs.humidity ?? 0,
-  });
+  // --- Drying estimate ---
+  let dryingHtml = '';
+  let barsHtml = '';
+
+  if (hourly?.length) {
+    const now = new Date();
+    const past = hourly
+      .filter(h => new Date(h.time) < now)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    let lastRainTime = null;
+    for (const h of past) {
+      if ((h.precip ?? 0) > 0.5) lastRainTime = h.time;
+    }
+    const hoursSinceRain = lastRainTime ? (now - new Date(lastRainTime)) / 3600000 : 999;
+
+    const latest = past[past.length - 1] ?? {};
+    const estimate = dryingEstimate({
+      hoursSinceRain,
+      windKmh: latest.windKmh ?? 0,
+      humidity: latest.humidity ?? 0,
+      rockType: location.rock_type,
+    });
+    const estimateClass = estimate === 'Likely dry' ? 'green' : estimate === 'Probably still damp' ? 'amber' : 'red';
+    const rainNote = lastRainTime
+      ? `Last rain ${formatTime(lastRainTime)} (${Math.round(hoursSinceRain)}h ago)`
+      : 'No significant rain recently';
+
+    dryingHtml = `<div class="now-drying">
+      <span class="score-pill score-${estimateClass}">${estimate}</span>
+      <span class="now-rain-note">${rainNote}</span>
+    </div>`;
+
+    const recentHours = past.slice(-24);
+    const maxPrecip = Math.max(0.1, ...recentHours.map(h => h.precip ?? 0));
+    const bars = recentHours.map(h => {
+      const pct = Math.round(((h.precip ?? 0) / maxPrecip) * 100);
+      const time = formatTime(h.time);
+      return `<div class="precip-bar-wrap" title="${time}: ${(h.precip ?? 0).toFixed(2)}mm">
+        <div class="precip-bar" style="height:${pct}%"></div>
+        <span class="bar-time">${time.slice(-5, -3)}h</span>
+      </div>`;
+    }).join('');
+    barsHtml = `<div class="precip-bars">${bars}</div>`;
+  }
 
   section.innerHTML = `
-    <h2>Current Conditions</h2>
-    <div class="obs-score score-pill score-${score}">${scoreLabel(score)}</div>
-    <p class="obs-desc">${obs.weatherDesc || '—'}</p>
-    <div class="obs-grid">
-      <div class="obs-item"><span class="obs-label">Temp</span><span>${obs.tempC !== null ? obs.tempC + '°C' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Rain rate</span><span>${obs.rainMmH !== null ? obs.rainMmH + 'mm/h' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Wind</span><span>${obs.windKmh !== null ? Math.round(obs.windKmh) + 'km/h' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Humidity</span><span>${obs.humidity !== null ? obs.humidity + '%' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Pressure</span><span>${obs.pressureHpa !== null ? obs.pressureHpa + 'hPa' : '—'}</span></div>
+    <div class="now-header">
+      <h2>Now</h2>
+      ${scoreHtml}
     </div>
-    <p class="obs-station-note">Station: ${location.nearest_station} (nearest Met Éireann station)</p>`;
+    ${metricsHtml}
+    ${dryingHtml}
+    ${barsHtml}
+    <p class="obs-station-note">Station: ${location.nearest_station}</p>`;
 }
 
 function renderDaylight(sunriseData) {
@@ -364,109 +405,86 @@ function renderHourly(location, mnHourly, omHourly, mode) {
 function renderModelComparison(mnHourly, omHourly, mode) {
   const section = document.getElementById('model-section');
   const now = new Date();
-  const cutoff = new Date(now.getTime() + 48 * 3600 * 1000);
+  const cutoff7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
   const mnByTime = Object.fromEntries(mnHourly.map(h => [h.time.slice(0, 13), h]));
   const omByTime = Object.fromEntries(omHourly.map(h => [h.time.slice(0, 13), h]));
-  const keys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
-    .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') <= cutoff)
-    .sort()
-    .slice(0, 24);
 
-  if (!keys.length) {
-    section.innerHTML = '<h2>Model Comparison</h2><p>No data.</p>';
+  const allKeys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
+    .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') < cutoff7)
+    .sort();
+
+  if (!allKeys.length) {
+    section.innerHTML = '<details class="model-details"><summary>Model Comparison</summary><p>No data.</p></details>';
     return;
   }
 
-  const rows = keys.map(k => {
+  // Mirror the hourly table's split: 1h entries up to the first MN 6h band anchor
+  const firstBandKey = allKeys.find(k => mnByTime[k]?.interval === 6);
+  const hourlyKeys = firstBandKey ? allKeys.filter(k => k < firstBandKey) : allKeys;
+  const bandAnchors = allKeys.filter(k => k >= (firstBandKey ?? '￿') && mnByTime[k]?.interval === 6);
+
+  const rows = [];
+
+  for (const k of hourlyKeys) {
     const mn = mnByTime[k]?.precip ?? 0;
     const om = omByTime[k]?.precip ?? 0;
     const omProb = omByTime[k]?.precipProb;
-    const probStr = omProb !== null && omProb !== undefined ? `${Math.round(omProb)}%` : '—';
+    const probStr = omProb != null ? `${Math.round(omProb)}%` : '—';
     const agreement = modelAgreement(mn, om);
     const agClass = agreement === 'Models agree — dry' ? 'agree' : agreement === 'Both predict rain' ? 'both-rain' : 'disagree';
-    return `
-      <tr>
-        <td>${formatTime(k + ':00:00Z')}</td>
-        <td>${mn.toFixed(2)}</td>
-        <td>${om.toFixed(2)}</td>
-        <td>${probStr}</td>
-        <td class="model-${agClass}">${agreement}</td>
-      </tr>`;
-  }).join('');
+    rows.push(`<tr>
+      <td>${formatTime(k + ':00:00Z')}</td>
+      <td>${mn.toFixed(2)}</td>
+      <td>${om.toFixed(2)}</td>
+      <td>${probStr}</td>
+      <td class="model-${agClass}">${agreement}</td>
+    </tr>`);
+  }
+
+  for (const k of bandAnchors) {
+    const mn = mnByTime[k]?.precip ?? 0;
+    // Aggregate OM over the same 6h window so the comparison is like-for-like
+    let omPrecip = 0, omProbSum = 0, omProbCount = 0;
+    for (let offset = 0; offset < 6; offset++) {
+      const t = new Date(k + ':00:00Z');
+      t.setUTCHours(t.getUTCHours() + offset);
+      const om = omByTime[t.toISOString().slice(0, 13)];
+      if (om) {
+        omPrecip += om.precip ?? 0;
+        if (om.precipProb != null) { omProbSum += om.precipProb; omProbCount++; }
+      }
+    }
+    const omAvgProb = omProbCount ? omProbSum / omProbCount : null;
+    const probStr = omAvgProb != null ? `${Math.round(omAvgProb)}%` : '—';
+    const agreement = modelAgreement(mn, omPrecip);
+    const agClass = agreement === 'Models agree — dry' ? 'agree' : agreement === 'Both predict rain' ? 'both-rain' : 'disagree';
+    const startH = new Date(k + ':00:00Z').getHours();
+    const endH = (startH + 6) % 24;
+    const label = `${String(startH).padStart(2, '0')}–${endH === 0 ? '24' : String(endH).padStart(2, '0')}`;
+    rows.push(`<tr class="band-row">
+      <td>${label}</td>
+      <td>${mn.toFixed(2)}</td>
+      <td>${omPrecip.toFixed(2)}</td>
+      <td>${probStr}</td>
+      <td class="model-${agClass}">${agreement}</td>
+    </tr>`);
+  }
 
   const modeLabels = { optimistic: 'the lower value', balanced: 'the average', pessimistic: 'the higher value' };
   section.innerHTML = `
-    <h2>Model Comparison</h2>
-    <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
-    <table class="model-table">
-      <thead>
-        <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <details class="model-details">
+      <summary>Model Comparison</summary>
+      <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
+      <table class="model-table">
+        <thead>
+          <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
+        </thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </details>`;
 }
 
-function renderDryingEstimate(location, hourly) {
-  const section = document.getElementById('drying-section');
-  if (!hourly?.length) {
-    section.innerHTML = '<h2>Recent Rainfall &amp; Drying Estimate</h2><p class="error-state">No data.</p>';
-    return;
-  }
-
-  const now = new Date();
-  // Look back 48h in hourly data (will cover what's available)
-  const past = hourly
-    .filter(h => new Date(h.time) < now)
-    .sort((a, b) => a.time.localeCompare(b.time));
-
-  // Find last hour with significant rain (>0.5mm)
-  let lastRainTime = null;
-  for (const h of past) {
-    if ((h.precip ?? 0) > 0.5) lastRainTime = h.time;
-  }
-
-  let hoursSinceRain = 999;
-  if (lastRainTime) {
-    hoursSinceRain = (now - new Date(lastRainTime)) / 3600000;
-  }
-
-  // Use latest available values for current wind + humidity
-  const latest = past[past.length - 1] ?? {};
-  const estimate = dryingEstimate({
-    hoursSinceRain,
-    windKmh: latest.windKmh ?? 0,
-    humidity: latest.humidity ?? 0,
-    rockType: location.rock_type,
-  });
-
-  const estimateClass = estimate === 'Likely dry' ? 'green' : estimate === 'Probably still damp' ? 'amber' : 'red';
-
-  // Precip bars for last 48 available hours
-  const recentHours = past.slice(-24);
-  const maxPrecip = Math.max(0.1, ...recentHours.map(h => h.precip ?? 0));
-  const bars = recentHours.map(h => {
-    const pct = Math.round(((h.precip ?? 0) / maxPrecip) * 100);
-    const time = formatTime(h.time);
-    return `<div class="precip-bar-wrap" title="${time}: ${(h.precip ?? 0).toFixed(2)}mm">
-      <div class="precip-bar" style="height:${pct}%"></div>
-      <span class="bar-time">${time.slice(-5, -3)}h</span>
-    </div>`;
-  }).join('');
-
-  section.innerHTML = `
-    <h2>Recent Rainfall &amp; Drying Estimate</h2>
-    <div class="drying-estimate score-pill score-${estimateClass}">
-      ${estimate}
-    </div>
-    <p class="drying-note">
-      ${lastRainTime
-        ? `Last significant rain: ${formatTime(lastRainTime)} (${Math.round(hoursSinceRain)}h ago)`
-        : 'No significant rain in recent data.'}
-      Based on ${location.rock_type}, current wind and humidity. Conservative estimate.
-    </p>
-    <div class="precip-bars">${bars}</div>`;
-}
 
 function capitalise(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
