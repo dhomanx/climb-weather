@@ -368,8 +368,9 @@ footer {
 .daily-table  td.score-amber { background-color: var(--amber-bg); color: inherit; }
 .hourly-table td.score-red,
 .daily-table  td.score-red   { background-color: var(--red-bg);   color: inherit; }
-.exposure-sheltered { color: var(--green-fg); font-weight: 600; }
-.exposure-exposed   { color: var(--red-fg); font-weight: 600; }
+.exposure-sheltered { color: var(--green-fg); font-weight: 600; white-space: nowrap; }
+.exposure-exposed   { color: var(--red-fg); font-weight: 600; white-space: nowrap; }
+.exposure-partial   { white-space: nowrap; }
 .exposure-partial   { color: var(--amber-fg); }
 
 /* Overview note */

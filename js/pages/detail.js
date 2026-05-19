@@ -240,7 +240,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
 
   function formatDayHeader(dateStr) {
     const d = new Date(dateStr + 'T12:00:00');
-    return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br>${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}`;
+    return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br><span style="white-space:nowrap">${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>`;
   }
 
   const REST_HEADERS = `<th>Precip<br>mm</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
