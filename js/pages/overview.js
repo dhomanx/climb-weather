@@ -19,8 +19,9 @@ import { registerModeHandler } from '../events.js';
 let _currentDays = [];
 const _locDataCache = new Map(); // locId → { mn: dailySummaries[], om: dailySummaries[] }
 let _daytimeOnly = localStorage.getItem('icw:daytimeOnly') === 'true';
+let _appClickController = null; // AbortController for the app click listener
 
-export async function renderOverview(locations, params) {
+export async function renderOverview(locations, params, { preserveCache = false } = {}) {
   // Handle ?fav= import
   if (params.has('fav')) {
     const ids = params.get('fav').split(',').filter(Boolean);
@@ -29,7 +30,7 @@ export async function renderOverview(locations, params) {
   }
 
   const mode = getMode();
-  _locDataCache.clear();
+  if (!preserveCache) _locDataCache.clear();
   const app = document.getElementById('app');
   app.innerHTML = '';
 
@@ -129,22 +130,30 @@ export async function renderOverview(locations, params) {
     }
   });
 
+  if (_appClickController) _appClickController.abort();
+  _appClickController = new AbortController();
   app.addEventListener('click', e => {
     const favBtn = e.target.closest('.fav-star');
     if (!favBtn) return;
     const id = favBtn.dataset.id;
     const nowFav = toggleFavourite(id);
-    favBtn.classList.toggle('active', nowFav);
     showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
-    renderOverview(locations, new URLSearchParams());
-  });
+    renderOverview(locations, new URLSearchParams(), { preserveCache: true });
+  }, { signal: _appClickController.signal });
 
   // Load warnings in parallel (non-blocking)
   loadAndRenderWarnings(locations).catch(() => {});
 
-  // Fetch forecasts progressively
-  const allFetchPromises = locations.map(loc => fetchForecastsForLocation(loc, days, mode));
-  // Each resolves independently and updates cells
+  if (preserveCache) {
+    // Re-apply existing cached data to freshly rendered cells
+    for (const [locId, { mn, om }] of _locDataCache) {
+      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, false, mode);
+    }
+  } else {
+    // Fetch forecasts progressively
+    const allFetchPromises = locations.map(loc => fetchForecastsForLocation(loc, days, mode));
+    // Each resolves independently and updates cells
+  }
 }
 
 async function fetchForecastsForLocation(loc, days, mode) {

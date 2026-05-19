@@ -19,7 +19,7 @@ export function isFavourite(id) {
 export function addFavourite(id) {
   const favs = getFavourites();
   if (!favs.includes(id)) {
-    favs.push(id);
+    favs.unshift(id);
     saveFavourites(favs);
   }
 }
