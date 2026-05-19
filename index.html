@@ -19,7 +19,7 @@
           <button class="mode-btn" data-mode="balanced">Balanced</button>
           <button class="mode-btn" data-mode="pessimistic">Pessimistic</button>
         </div>
-        <a href="#/about" class="mode-about-link">?</a>
+        <button class="mode-about-link" id="bar-info-btn" aria-label="Help">i</button>
       </div>
       <div class="sticky-freshness">
         <span id="freshness-time">—</span>
@@ -41,6 +41,19 @@
     </span>
     <span class="freshness">Data: <span id="freshness-footer">—</span></span>
   </footer>
+  <div id="bar-info-modal" class="bar-modal" hidden>
+    <div class="bar-modal-box">
+      <button class="bar-modal-close" aria-label="Close">✕</button>
+      <h3>How it works</h3>
+      <dl>
+        <dt>Optimistic</dt><dd>Takes the better reading from each weather model. Good when you're flexible and can turn back if needed.</dd>
+        <dt>Balanced</dt><dd>Averages the two models. A reasonable middle ground for day trips.</dd>
+        <dt>Pessimistic</dt><dd>Takes the worse reading. Best when you're committing to a long drive or multi-day trip.</dd>
+        <dt>Time</dt><dd>When the weather data was last fetched. Goes amber if over an hour old.</dd>
+        <dt>↻ Refresh</dt><dd>Forces fresh data from all weather sources, ignoring the cache.</dd>
+      </dl>
+    </div>
+  </div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

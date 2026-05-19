@@ -45,6 +45,11 @@ function initStickyBar() {
       triggerModeChange(newMode);
     });
   });
+
+  const modal = document.getElementById('bar-info-modal');
+  document.getElementById('bar-info-btn')?.addEventListener('click', () => modal.hidden = false);
+  modal?.querySelector('.bar-modal-close')?.addEventListener('click', () => modal.hidden = true);
+  modal?.addEventListener('click', e => { if (e.target === modal) modal.hidden = true; });
 }
 
 function handleRoute() {

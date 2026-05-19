@@ -518,6 +518,58 @@ footer {
   text-decoration: none !important;
 }
 .mode-about-link:hover { border-color: var(--grey-mid); color: var(--text); }
+
+.bar-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4rem;
+}
+.bar-modal[hidden] { display: none; }
+.bar-modal-box {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  max-width: 340px;
+  width: calc(100% - 2rem);
+  position: relative;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+.bar-modal-box h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.bar-modal-box dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+.bar-modal-box dt {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-top: 0.1rem;
+}
+.bar-modal-box dd {
+  margin: 0;
+  color: var(--muted);
+}
+.bar-modal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.2rem;
+}
 .mode-indicator {
   font-size: 0.75rem;
   color: var(--muted);
