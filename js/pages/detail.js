@@ -143,7 +143,7 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
         renderModelComparison(mnHourly, omHourly, mode);
       } else {
         const s = document.getElementById('model-section');
-        if (s) s.innerHTML = '<h2>Model Comparison</h2><p>Only one data source available.</p>';
+        if (s) s.innerHTML = '<details class="model-details"><summary>Model Comparison</summary><p>Only one data source available.</p></details>';
       }
 
       // Clear fade (sections were replaced but the section elements remain)
@@ -370,11 +370,10 @@ function renderModelComparison(mnHourly, omHourly, mode) {
   const omByTime = Object.fromEntries(omHourly.map(h => [h.time.slice(0, 13), h]));
   const keys = [...new Set([...Object.keys(mnByTime), ...Object.keys(omByTime)])]
     .filter(k => new Date(k + ':00:00Z') >= now && new Date(k + ':00:00Z') <= cutoff)
-    .sort()
-    .slice(0, 24);
+    .sort();
 
   if (!keys.length) {
-    section.innerHTML = '<h2>Model Comparison</h2><p>No data.</p>';
+    section.innerHTML = '<details class="model-details"><summary>Model Comparison</summary><p>No data.</p></details>';
     return;
   }
 
@@ -397,14 +396,16 @@ function renderModelComparison(mnHourly, omHourly, mode) {
 
   const modeLabels = { optimistic: 'the lower value', balanced: 'the average', pessimistic: 'the higher value' };
   section.innerHTML = `
-    <h2>Model Comparison</h2>
-    <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
-    <table class="model-table">
-      <thead>
-        <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <details class="model-details">
+      <summary>Model Comparison</summary>
+      <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
+      <table class="model-table">
+        <thead>
+          <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </details>`;
 }
 
 function renderDryingEstimate(location, hourly) {

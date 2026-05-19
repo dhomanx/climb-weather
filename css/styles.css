@@ -398,6 +398,18 @@ footer {
 .daily-table thead th { background: var(--grey-bg); font-weight: 600; }
 
 /* Model comparison */
+.model-details > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 1rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0;
+  user-select: none;
+}
+.model-details > summary::-webkit-details-marker { display: none; }
+.model-details[open] > summary { margin-bottom: 0.75rem; }
 .model-note { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.5rem; }
 .model-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
 .model-table th, .model-table td {
