@@ -153,6 +153,9 @@ function renderAbout() {
       Your favourites and mode preference are stored only in your browser's localStorage.</p>
       <p>No analytics, cookies, or tracking of any kind.</p>
 
+      <h2>Inspiration</h2>
+      <p>The idea for this project was inspired by <a href="https://www.dryrock.ie" target="_blank" rel="noopener">dryrock.ie</a> by RorySullivan.</p>
+
       <h2>Source Code</h2>
       <p><a href="https://github.com/dhomanx/climb-weather" target="_blank" rel="noopener">github.com/dhomanx/climb-weather</a></p>
     </div>`;
