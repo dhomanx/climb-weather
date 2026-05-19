@@ -87,20 +87,19 @@ function renderAbout() {
       <p>A free tool to help Irish rock climbers find good conditions, quickly.
       All data is fetched live in your browser — no server, no sign-up, no tracking.</p>
 
-      <h2>I'm feeling… what does that mean?</h2>
+      <h2>Who's on your shoulder?</h2>
       <p>Two weather models (MET Norway and Open-Meteo) often give slightly different
-      forecasts for the same location. The <strong>I'm feeling</strong> setting on the
-      overview page controls how those differences are handled:</p>
+      forecasts for the same location. The <strong>I'm feeling</strong> setting controls
+      how those differences are handled — pick whose advice suits how you're planning your day:</p>
       <ul>
-        <li><strong>Pessimistic</strong> (default) — uses the more concerning value from
-        each model for each parameter. Best for planning a long drive or committing to a
-        multi-day trip. When in doubt, this is the safe choice.</li>
-        <li><strong>Balanced</strong> — averages the two models. A reasonable middle ground
-        for day trips where you can reassess on the morning.</li>
-        <li><strong>Optimistic</strong> — uses the more favourable reading. Useful when
-        you're flexible and happy to turn back if conditions aren't as good as hoped.</li>
+        <li><strong>😈</strong> — takes the more favourable reading from each model.
+        For when you're going regardless and just want the forecast to agree.</li>
+        <li><strong>🤔</strong> — averages both models. When you want a fair read before committing.</li>
+        <li><strong>😇</strong> (default) — takes the more concerning reading from each model.
+        For when you're being sensible — long drives, multi-day trips, or when bailing isn't an option.</li>
       </ul>
       <p>Your choice is saved on your device and applies to all locations and forecasts.</p>
+      <p class="about-cat-note">😇 😈 — inspired by 🐱</p>
 
       <h2>How is climbability scored?</h2>
       <h3>Overview</h3>
