@@ -18,6 +18,7 @@ import { registerModeHandler } from '../events.js';
 // Module-level cache so mode changes can re-score without re-fetching
 let _currentDays = [];
 const _locDataCache = new Map(); // locId → { mn: dailySummaries[], om: dailySummaries[] }
+let _daytimeOnly = localStorage.getItem('icw:daytimeOnly') === 'true';
 
 export async function renderOverview(locations, params) {
   // Handle ?fav= import
@@ -83,7 +84,10 @@ export async function renderOverview(locations, params) {
       <h1>Irish Climbing Weather</h1>
       ${favs.length ? `<button id="share-favs-btn">Share Favourites</button>` : ''}
     </div>
-    <p class="overview-note">Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.</p>
+    <div class="overview-filters">
+      <button id="daytime-btn" class="daytime-btn${_daytimeOnly ? ' daytime-active' : ''}">☀ Daytime only (10am–8pm)</button>
+    </div>
+    <p class="overview-note" id="overview-note">${_daytimeOnly ? 'Rain shown is 10am–8pm only (prime climbing hours). Tap any location for full conditions.' : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.'}</p>
     <div class="table-wrapper">
       <table class="overview-table">
         <thead>
@@ -109,6 +113,19 @@ export async function renderOverview(locations, params) {
   registerModeHandler(newMode => {
     for (const [locId, { mn, om }] of _locDataCache) {
       if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, newMode);
+    }
+  });
+
+  document.getElementById('daytime-btn')?.addEventListener('click', () => {
+    _daytimeOnly = !_daytimeOnly;
+    localStorage.setItem('icw:daytimeOnly', _daytimeOnly);
+    document.getElementById('daytime-btn').classList.toggle('daytime-active', _daytimeOnly);
+    document.getElementById('overview-note').textContent = _daytimeOnly
+      ? 'Rain shown is 10am–8pm only (prime climbing hours). Tap any location for full conditions.'
+      : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.';
+    const mode = getMode();
+    for (const [locId, { mn, om }] of _locDataCache) {
+      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, mode);
     }
   });
 
@@ -197,10 +214,11 @@ function renderLocationCells(locId, primarySummaries, days, secondarySummaries, 
       continue;
     }
 
-    let params = { totalPrecip: primary.totalPrecip, maxWind: primary.maxWind, avgHumidity: primary.avgHumidity };
+    const precipKey = _daytimeOnly ? 'climbingHoursPrecip' : 'totalPrecip';
+    let params = { totalPrecip: primary[precipKey] ?? 0, maxWind: primary.maxWind, avgHumidity: primary.avgHumidity };
     if (secondary[day]) {
       params = combineDailyParams(params, {
-        totalPrecip: secondary[day].totalPrecip,
+        totalPrecip: secondary[day][precipKey] ?? 0,
         maxWind: secondary[day].maxWind,
         avgHumidity: secondary[day].avgHumidity,
       }, mode);

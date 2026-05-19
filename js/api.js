@@ -294,10 +294,12 @@ export function buildDailySummaries(hourly) {
   }
   return Object.entries(days).map(([date, { hours }]) => {
     const totalPrecip = hours.reduce((s, h) => s + (h.precip ?? 0), 0);
+    const climbingHours = hours.filter(h => { const hr = parseInt(h.time.slice(11, 13), 10); return hr >= 10 && hr < 20; });
+    const climbingHoursPrecip = climbingHours.reduce((s, h) => s + (h.precip ?? 0), 0);
     const maxWind = Math.max(...hours.map(h => h.windKmh ?? 0));
     const avgHumidity = hours.reduce((s, h) => s + (h.humidity ?? 0), 0) / hours.length;
     const minTemp = Math.min(...hours.map(h => h.tempC ?? 99));
     const maxTemp = Math.max(...hours.map(h => h.tempC ?? -99));
-    return { date, totalPrecip, maxWind, avgHumidity, minTemp, maxTemp, hours };
+    return { date, totalPrecip, climbingHoursPrecip, maxWind, avgHumidity, minTemp, maxTemp, hours };
   });
 }

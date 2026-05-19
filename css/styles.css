@@ -385,6 +385,26 @@ footer {
 .exposure-partial   { white-space: nowrap; }
 .exposure-partial   { color: var(--amber-fg); }
 
+/* Overview filters */
+.overview-filters { padding: 0.3rem 0 0.2rem; }
+.daytime-btn {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fff;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+}
+.daytime-btn:hover { border-color: var(--grey-mid); color: var(--text); }
+.daytime-btn.daytime-active {
+  background: var(--amber-bg);
+  color: var(--amber-fg);
+  border-color: var(--amber-mid);
+  font-weight: 600;
+}
+
 /* Overview note */
 .overview-note {
   font-size: 0.75rem;

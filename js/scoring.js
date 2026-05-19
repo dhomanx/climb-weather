@@ -60,6 +60,7 @@ export function combineDailyParams(metNorway, openMeteo, mode = 'pessimistic') {
   };
   return {
     totalPrecip: pick(metNorway.totalPrecip, openMeteo.totalPrecip),
+    climbingHoursPrecip: pick(metNorway.climbingHoursPrecip, openMeteo.climbingHoursPrecip),
     maxWind: pick(metNorway.maxWind, openMeteo.maxWind),
     avgHumidity: pick(metNorway.avgHumidity, openMeteo.avgHumidity),
     minTemp: ((metNorway.minTemp ?? 0) + (openMeteo.minTemp ?? 0)) / 2,
