@@ -47,7 +47,7 @@ export async function renderDetail(location) {
 
     <div class="detail-body">
       <section id="now-section" class="detail-section">
-        <div class="now-header"><h2>Now</h2></div>
+        <div class="now-header"><h2>Now <span class="now-wip">Experimental/WIP</span></h2></div>
         <div class="now-loading">Loading…</div>
       </section>
 
@@ -220,7 +220,7 @@ function renderNow(location, observations, hourly) {
 
   section.innerHTML = `
     <div class="now-header">
-      <h2>Now</h2>
+      <h2>Now <span class="now-wip">Experimental/WIP</span></h2>
       ${scoreHtml}
     </div>
     ${metricsHtml}

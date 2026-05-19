@@ -325,6 +325,7 @@ footer {
   margin-bottom: 0.4rem;
 }
 .now-header h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+.now-wip { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 .now-metrics { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.4rem; }
 .now-drying { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
 .now-rain-note { font-size: 0.8rem; color: var(--muted); }
