@@ -345,7 +345,21 @@ footer {
   line-height: 1.3;
 }
 .day-header-row th { border-top: 2px solid var(--border); }
-.hour-time { font-weight: 600; white-space: nowrap; }
+.day-header-row th:first-child,
+.hourly-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--grey-bg);
+}
+.hour-time {
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+}
 .band-row td { font-style: italic; }
 /* Per-cell scoring — only background changes, text stays readable */
 .hourly-table td.score-green,
