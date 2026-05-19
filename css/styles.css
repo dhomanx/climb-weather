@@ -315,17 +315,20 @@ footer {
   padding-bottom: 0.4rem;
 }
 
-/* Observations */
-.obs-score { margin-bottom: 0.5rem; }
-.obs-desc { font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--muted); }
-.obs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 0.5rem;
+/* Now section */
+.now-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.4rem;
 }
-.obs-item { display: flex; flex-direction: column; gap: 0.15rem; }
-.obs-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-.obs-station-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.75rem; }
+.now-header h2 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+.now-metrics { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.4rem; }
+.now-drying { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.now-rain-note { font-size: 0.8rem; color: var(--muted); }
+.obs-station-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
 
 /* Daylight */
 .daylight-grid {
@@ -422,9 +425,7 @@ footer {
 .model-disagree { color: var(--amber-fg); font-weight: 600; }
 .model-both-rain { color: var(--red-fg); font-weight: 600; }
 
-/* Drying estimate */
-.drying-estimate { margin-bottom: 0.75rem; font-size: 1rem; }
-.drying-note { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.75rem; }
+/* Precip bars */
 .precip-bars {
   display: flex;
   align-items: flex-end;

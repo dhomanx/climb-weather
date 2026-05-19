@@ -46,11 +46,10 @@ export async function renderDetail(location) {
     </div>
 
     <div class="detail-body">
-      <section id="current-obs" class="detail-section">
-        <h2>Current Conditions</h2>
-        <div class="obs-loading">Loading observations…</div>
+      <section id="now-section" class="detail-section">
+        <div class="now-header"><h2>Now</h2></div>
+        <div class="now-loading">Loading…</div>
       </section>
-
 
       <section id="hourly-section" class="detail-section">
         <h2>Hourly Forecast</h2>
@@ -60,11 +59,6 @@ export async function renderDetail(location) {
       <section id="model-section" class="detail-section">
         <h2>Model Comparison</h2>
         <div class="model-loading">Loading…</div>
-      </section>
-
-      <section id="drying-section" class="detail-section">
-        <h2>Recent Rainfall &amp; Drying Estimate</h2>
-        <div class="drying-loading">Loading…</div>
       </section>
     </div>`;
 
@@ -107,18 +101,15 @@ export async function renderDetail(location) {
   }
   showFreshnessBar(getOldestCacheTimestamp(cacheKeys));
 
-  // Observations and daylight don't depend on mode
-  renderObservations(location, observations);
+  // Daylight and Now don't depend on mode
   renderDaylight(sunriseData);
+  renderNow(location, observations, mnHourly ?? omHourly);
 
   // Store state now so mode buttons can re-render sections instantly
   _detailState = { locId: location.id, location, mnHourly, omHourly };
 
   // Use getMode() at call time — picks up any mode change made while loading
   applyDetailMode(location, mnHourly, omHourly, getMode());
-
-  // Drying estimate doesn't depend on mode
-  renderDryingEstimate(location, mnHourly ?? omHourly);
 }
 
 function applyDetailMode(location, mnHourly, omHourly, mode) {
@@ -155,37 +146,87 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
   });
 }
 
-function renderObservations(location, observations) {
-  const section = document.getElementById('current-obs');
-  if (!observations) {
-    section.innerHTML = '<h2>Current Conditions</h2><p class="error-state">Observations unavailable.</p>';
-    return;
-  }
-  const obs = observations[location.nearest_station];
-  if (!obs) {
-    section.innerHTML = `<h2>Current Conditions</h2><p class="muted">No data for station: ${location.nearest_station}</p>`;
-    return;
+function renderNow(location, observations, hourly) {
+  const section = document.getElementById('now-section');
+
+  // --- Observations ---
+  let scoreHtml = '';
+  let metricsHtml = '';
+
+  const obs = observations?.[location.nearest_station];
+  if (obs) {
+    const score = scoreHour({
+      precip: obs.rainMmH ?? 0,
+      precipProb: 0,
+      windKmh: obs.windKmh ?? 0,
+      humidity: obs.humidity ?? 0,
+    });
+    scoreHtml = `<div class="score-pill score-${score}">${scoreLabel(score)}</div>`;
+    const parts = [
+      obs.weatherDesc || null,
+      obs.tempC !== null ? `${obs.tempC}°C` : null,
+      obs.rainMmH !== null ? `${obs.rainMmH}mm/h` : null,
+      obs.windKmh !== null ? `${Math.round(obs.windKmh)}km/h` : null,
+      obs.humidity !== null ? `${obs.humidity}%` : null,
+    ].filter(Boolean);
+    metricsHtml = `<p class="now-metrics">${parts.join(' · ')}</p>`;
   }
 
-  const score = scoreHour({
-    precip: obs.rainMmH ?? 0,
-    precipProb: 0,
-    windKmh: obs.windKmh ?? 0,
-    humidity: obs.humidity ?? 0,
-  });
+  // --- Drying estimate ---
+  let dryingHtml = '';
+  let barsHtml = '';
+
+  if (hourly?.length) {
+    const now = new Date();
+    const past = hourly
+      .filter(h => new Date(h.time) < now)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    let lastRainTime = null;
+    for (const h of past) {
+      if ((h.precip ?? 0) > 0.5) lastRainTime = h.time;
+    }
+    const hoursSinceRain = lastRainTime ? (now - new Date(lastRainTime)) / 3600000 : 999;
+
+    const latest = past[past.length - 1] ?? {};
+    const estimate = dryingEstimate({
+      hoursSinceRain,
+      windKmh: latest.windKmh ?? 0,
+      humidity: latest.humidity ?? 0,
+      rockType: location.rock_type,
+    });
+    const estimateClass = estimate === 'Likely dry' ? 'green' : estimate === 'Probably still damp' ? 'amber' : 'red';
+    const rainNote = lastRainTime
+      ? `Last rain ${formatTime(lastRainTime)} (${Math.round(hoursSinceRain)}h ago)`
+      : 'No significant rain recently';
+
+    dryingHtml = `<div class="now-drying">
+      <span class="score-pill score-${estimateClass}">${estimate}</span>
+      <span class="now-rain-note">${rainNote}</span>
+    </div>`;
+
+    const recentHours = past.slice(-24);
+    const maxPrecip = Math.max(0.1, ...recentHours.map(h => h.precip ?? 0));
+    const bars = recentHours.map(h => {
+      const pct = Math.round(((h.precip ?? 0) / maxPrecip) * 100);
+      const time = formatTime(h.time);
+      return `<div class="precip-bar-wrap" title="${time}: ${(h.precip ?? 0).toFixed(2)}mm">
+        <div class="precip-bar" style="height:${pct}%"></div>
+        <span class="bar-time">${time.slice(-5, -3)}h</span>
+      </div>`;
+    }).join('');
+    barsHtml = `<div class="precip-bars">${bars}</div>`;
+  }
 
   section.innerHTML = `
-    <h2>Current Conditions</h2>
-    <div class="obs-score score-pill score-${score}">${scoreLabel(score)}</div>
-    <p class="obs-desc">${obs.weatherDesc || '—'}</p>
-    <div class="obs-grid">
-      <div class="obs-item"><span class="obs-label">Temp</span><span>${obs.tempC !== null ? obs.tempC + '°C' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Rain rate</span><span>${obs.rainMmH !== null ? obs.rainMmH + 'mm/h' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Wind</span><span>${obs.windKmh !== null ? Math.round(obs.windKmh) + 'km/h' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Humidity</span><span>${obs.humidity !== null ? obs.humidity + '%' : '—'}</span></div>
-      <div class="obs-item"><span class="obs-label">Pressure</span><span>${obs.pressureHpa !== null ? obs.pressureHpa + 'hPa' : '—'}</span></div>
+    <div class="now-header">
+      <h2>Now</h2>
+      ${scoreHtml}
     </div>
-    <p class="obs-station-note">Station: ${location.nearest_station} (nearest Met Éireann station)</p>`;
+    ${metricsHtml}
+    ${dryingHtml}
+    ${barsHtml}
+    <p class="obs-station-note">Station: ${location.nearest_station}</p>`;
 }
 
 function renderDaylight(sunriseData) {
@@ -444,66 +485,6 @@ function renderModelComparison(mnHourly, omHourly, mode) {
     </details>`;
 }
 
-function renderDryingEstimate(location, hourly) {
-  const section = document.getElementById('drying-section');
-  if (!hourly?.length) {
-    section.innerHTML = '<h2>Recent Rainfall &amp; Drying Estimate</h2><p class="error-state">No data.</p>';
-    return;
-  }
-
-  const now = new Date();
-  // Look back 48h in hourly data (will cover what's available)
-  const past = hourly
-    .filter(h => new Date(h.time) < now)
-    .sort((a, b) => a.time.localeCompare(b.time));
-
-  // Find last hour with significant rain (>0.5mm)
-  let lastRainTime = null;
-  for (const h of past) {
-    if ((h.precip ?? 0) > 0.5) lastRainTime = h.time;
-  }
-
-  let hoursSinceRain = 999;
-  if (lastRainTime) {
-    hoursSinceRain = (now - new Date(lastRainTime)) / 3600000;
-  }
-
-  // Use latest available values for current wind + humidity
-  const latest = past[past.length - 1] ?? {};
-  const estimate = dryingEstimate({
-    hoursSinceRain,
-    windKmh: latest.windKmh ?? 0,
-    humidity: latest.humidity ?? 0,
-    rockType: location.rock_type,
-  });
-
-  const estimateClass = estimate === 'Likely dry' ? 'green' : estimate === 'Probably still damp' ? 'amber' : 'red';
-
-  // Precip bars for last 48 available hours
-  const recentHours = past.slice(-24);
-  const maxPrecip = Math.max(0.1, ...recentHours.map(h => h.precip ?? 0));
-  const bars = recentHours.map(h => {
-    const pct = Math.round(((h.precip ?? 0) / maxPrecip) * 100);
-    const time = formatTime(h.time);
-    return `<div class="precip-bar-wrap" title="${time}: ${(h.precip ?? 0).toFixed(2)}mm">
-      <div class="precip-bar" style="height:${pct}%"></div>
-      <span class="bar-time">${time.slice(-5, -3)}h</span>
-    </div>`;
-  }).join('');
-
-  section.innerHTML = `
-    <h2>Recent Rainfall &amp; Drying Estimate</h2>
-    <div class="drying-estimate score-pill score-${estimateClass}">
-      ${estimate}
-    </div>
-    <p class="drying-note">
-      ${lastRainTime
-        ? `Last significant rain: ${formatTime(lastRainTime)} (${Math.round(hoursSinceRain)}h ago)`
-        : 'No significant rain in recent data.'}
-      Based on ${location.rock_type}, current wind and humidity. Conservative estimate.
-    </p>
-    <div class="precip-bars">${bars}</div>`;
-}
 
 function capitalise(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
