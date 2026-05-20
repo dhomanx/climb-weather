@@ -18,8 +18,8 @@ import {
 import { getOldestCacheTimestamp } from '../api.js';
 import { toggleFavourite, isFavourite } from '../favourites.js';
 import { renderLocationWarnings } from '../warnings.js';
-import { getMode } from '../settings.js';
-import { registerModeHandler } from '../events.js';
+import { getMode, getModelSource } from '../settings.js';
+import { registerModeHandler, registerModelHandler } from '../events.js';
 
 // Module-level state so mode changes can re-render sections without re-fetching
 let _detailState = null; // { locId, location, mnHourly, omHourly }
@@ -69,7 +69,11 @@ export async function renderDetail(location) {
   });
 
   registerModeHandler(newMode => {
-    if (_detailState) applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, newMode);
+    if (_detailState) applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, newMode, getModelSource());
+  });
+
+  registerModelHandler(newSource => {
+    if (_detailState) applyDetailMode(_detailState.location, _detailState.mnHourly, _detailState.omHourly, getMode(), newSource);
   });
 
   const today = todayISO();
@@ -109,10 +113,10 @@ export async function renderDetail(location) {
   _detailState = { locId: location.id, location, mnHourly, omHourly };
 
   // Use getMode() at call time — picks up any mode change made while loading
-  applyDetailMode(location, mnHourly, omHourly, getMode());
+  applyDetailMode(location, mnHourly, omHourly, getMode(), getModelSource());
 }
 
-function applyDetailMode(location, mnHourly, omHourly, mode) {
+function applyDetailMode(location, mnHourly, omHourly, mode, source) {
   const sectionIds = ['hourly-section', 'model-section'];
 
   // Briefly fade sections so the user sees something happened
@@ -124,7 +128,7 @@ function applyDetailMode(location, mnHourly, omHourly, mode) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       if (mnHourly || omHourly) {
-        renderHourly(location, mnHourly, omHourly, mode);
+        renderHourly(location, mnHourly, omHourly, mode, source);
       } else {
         const s = document.getElementById('hourly-section');
         if (s) s.innerHTML = '<h2>Hourly Forecast</h2><p class="error-state">Forecast unavailable.</p>';
@@ -242,7 +246,7 @@ function formatDayHeader(dateStr) {
   return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br><span style="white-space:nowrap">${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>`;
 }
 
-function renderHourly(location, mnHourly, omHourly, mode) {
+function renderHourly(location, mnHourly, omHourly, mode, source) {
   const section = document.getElementById('hourly-section');
   const now = new Date();
   const cutoff7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
@@ -268,8 +272,13 @@ function renderHourly(location, mnHourly, omHourly, mode) {
 
   function hourRow(k) {
     const mn = mnByTime[k], om = omByTime[k];
+    if (source === 'mn' && !mn) return '';
+    if (source === 'om' && !om) return '';
     if (!mn && !om) return '';
-    const p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
+    let p;
+    if (source === 'mn') p = mn;
+    else if (source === 'om') p = om;
+    else p = mn && om ? combineHourlyParams(mn, om, mode) : (mn ?? om);
     const eff = (p.precipProb ?? 0) > 0 ? p.precip * (p.precipProb / 100) : p.precip;
     const windDeg = p.windDir ?? 0;
     const cardinal = degToCardinal(windDeg);
@@ -328,7 +337,16 @@ function renderHourly(location, mnHourly, omHourly, mode) {
 
     // Combine MN band values with aggregated OM values
     let totalPrecip, maxWind, avgTemp, avgHum, avgCloud, windDir, avgProb;
-    if (mn && n) {
+    if (source === 'mn') {
+      if (!mn) return '';
+      totalPrecip = mn.precip; maxWind = mn.windKmh; avgTemp = mn.tempC;
+      avgHum = mn.humidity; avgCloud = mn.cloudPct ?? 0;
+      windDir = mn.windDir ?? 0; avgProb = 0;
+    } else if (source === 'om') {
+      if (!n) return '';
+      totalPrecip = omPrecip; maxWind = omMaxWind; avgTemp = omAvgTemp;
+      avgHum = omAvgHum; avgCloud = omAvgCloud; windDir = omMidDir; avgProb = omAvgProb;
+    } else if (mn && n) {
       totalPrecip = pick(mn.precip, omPrecip);
       maxWind     = pick(mn.windKmh, omMaxWind);
       avgTemp     = (mn.tempC + omAvgTemp) / 2;
