@@ -546,13 +546,13 @@ footer {
   flex-wrap: wrap;
 }
 .mode-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
-.mode-buttons { display: flex; gap: 0.2rem; }
+.mode-buttons { display: flex; gap: 0.15rem; }
 .mode-btn {
-  padding: 0.25rem 0.65rem;
+  padding: 0.2rem 0.45rem;
   border: 1px solid var(--border);
   border-radius: 1rem;
   background: var(--surface);
-  font-size: 0.78rem;
+  font-size: 0.73rem;
   color: var(--muted);
   cursor: pointer;
   font-family: var(--font);
@@ -586,13 +586,13 @@ footer {
   flex-shrink: 0;
 }
 
-.model-buttons { display: flex; gap: 0.2rem; }
+.model-buttons { display: flex; gap: 0.15rem; }
 .model-btn {
-  padding: 0.25rem 0.55rem;
+  padding: 0.2rem 0.4rem;
   border: 1px solid var(--border);
   border-radius: 1rem;
   background: var(--surface);
-  font-size: 0.78rem;
+  font-size: 0.73rem;
   color: var(--muted);
   cursor: pointer;
   font-family: var(--font);
