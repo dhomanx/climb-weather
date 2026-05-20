@@ -89,6 +89,20 @@ function renderAbout() {
       <p>A free tool to help Irish rock climbers find good conditions, quickly.
       All data is fetched live in your browser — no server, no sign-up, no tracking.</p>
 
+      <h2>Locations</h2>
+      <p>The app includes 85+ Irish climbing crags across all four provinces. On first visit
+      a small default set is shown — open <a href="#/settings">Settings</a> to choose exactly
+      which locations appear on your overview.</p>
+      <ul>
+        <li><strong>Choose your crags</strong> — tick any combination of the built-in locations.
+        Only the locations you pick are fetched, keeping the overview fast and relevant.</li>
+        <li><strong>Custom locations</strong> — add any crag not in the list. Search by place
+        name (powered by the Open-Meteo geocoding API), then fill in the details. Custom
+        locations are always shown and are saved on your device.</li>
+        <li><strong>Share &amp; backup</strong> — export your custom locations and active set
+        as a JSON file, or share individual crags via a link.</li>
+      </ul>
+
       <h2>Who's on your shoulder?</h2>
       <p>Two weather models (MET Norway and Open-Meteo) often give slightly different
       forecasts for the same location. The <strong>I'm feeling</strong> setting controls
@@ -104,11 +118,13 @@ function renderAbout() {
       <p class="about-cat-note">😇 😈 — inspired by 🐱</p>
 
       <h2>How is climbability scored?</h2>
-      <h3>Overview</h3>
-      <p>The overview grid colours each day by <strong>expected daily precipitation only</strong>:
+      <h3>Overview grid</h3>
+      <p>Each day is coloured by <strong>expected daily precipitation only</strong>:
       under 1mm green, 1–5mm amber, over 5mm red. Wind and humidity are not included here —
-      they can vary a lot across a day and are better evaluated at the hourly level.
+      they vary a lot across a day and are better evaluated at the hourly level.
       Tap any location to see the full picture.</p>
+      <p>The <strong>☀ Daytime only</strong> toggle restricts the rain total to 10am–8pm,
+      useful for planning a day trip when you don't care about overnight rain.</p>
 
       <h3>Location detail — per-parameter cell colours</h3>
       <p>In the hourly and daily forecast tables, <strong>each cell is coloured
@@ -129,6 +145,11 @@ function renderAbout() {
       <p>Note: MET Norway does not provide a precipitation probability field.
       Probability in the Model Comparison panel comes from Open-Meteo only.</p>
 
+      <h2>Appearance</h2>
+      <p>The app follows your device's dark/light mode by default. You can override this
+      in <a href="#/settings">Settings</a> under Appearance — your preference is saved on
+      your device.</p>
+
       <h2>Data Sources</h2>
       <ul>
         <li>
@@ -137,7 +158,7 @@ function renderAbout() {
           licensed under Creative Commons 4.0 BY International.
         </li>
         <li>
-          <strong>Open-Meteo</strong> — Weather data by
+          <strong>Open-Meteo</strong> — Weather data and geocoding by
           <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>,
           licensed under CC BY 4.0.
         </li>
@@ -151,7 +172,8 @@ function renderAbout() {
 
       <h2>Privacy</h2>
       <p>This site does not collect, store, or transmit any personal data.
-      Your favourites and mode preference are stored only in your browser's localStorage.</p>
+      Your favourites, mode preference, active location selection, and any custom locations
+      you add are stored only in your browser's localStorage and never leave your device.</p>
       <p>No analytics, cookies, or tracking of any kind.</p>
 
       <h2>Inspiration</h2>
