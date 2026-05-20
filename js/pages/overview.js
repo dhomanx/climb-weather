@@ -73,7 +73,8 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
   const favs = getFavourites();
   const allLocs = locations.slice();
   const pinnedIds = new Set(favs);
-  const pinned = allLocs.filter(l => pinnedIds.has(l.id));
+  const locById = new Map(allLocs.map(l => [l.id, l]));
+  const pinned = favs.map(id => locById.get(id)).filter(Boolean);
   const rest = allLocs.filter(l => !pinnedIds.has(l.id));
 
   function buildRows(locs) {
