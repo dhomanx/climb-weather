@@ -137,6 +137,13 @@ export function removeCustomLocation(id) {
   } catch { /* ignore */ }
 }
 
+export function updateCustomLocation(id, data) {
+  const customs = getCustomLocations().map(l =>
+    l.id === id ? { ...l, ...data, id, isCustom: true } : l
+  );
+  localStorage.setItem('icw:custom-locations', JSON.stringify(customs));
+}
+
 // ── URL sharing of custom locations ─────────────────────────────────────────
 
 export function encodeCustomLocationForUrl(loc) {

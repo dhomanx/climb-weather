@@ -1,9 +1,11 @@
 import {
   getAllLocations, getActiveLocations, setActiveLocations, isLocationActive, toggleLocationActive,
-  getCustomLocations, addCustomLocation, removeCustomLocation,
+  getCustomLocations, addCustomLocation, removeCustomLocation, updateCustomLocation,
   groupByRegion, encodeCustomLocationForUrl,
   exportLocationsJson, importLocationsJson,
 } from '../locations.js';
+
+let _editingId = null;
 import { showToast } from '../ui.js';
 
 const IRISH_COUNTIES = [
@@ -71,7 +73,7 @@ export function renderSettings() {
         <div id="custom-list"></div>
         <button id="btn-add-custom" class="settings-btn">+ Add a custom location</button>
         <div id="add-custom-form" hidden>
-          <h3>Add Custom Location</h3>
+          <h3 id="custom-form-title">Add Custom Location</h3>
           <div class="geocode-row">
             <input type="text" id="geocode-input" class="settings-input" placeholder="Search place name…" autocomplete="off">
             <button id="btn-geocode" class="settings-btn">Search</button>
@@ -80,6 +82,10 @@ export function renderSettings() {
           <div id="custom-fields" hidden>
             <div class="field-row">
               <label>Name <input type="text" id="cf-name" class="settings-input"></label>
+            </div>
+            <div class="field-row field-row-inline">
+              <label>Latitude <input type="number" id="cf-lat" class="settings-input" style="width:110px" step="0.0001"></label>
+              <label>Longitude <input type="number" id="cf-lon" class="settings-input" style="width:110px" step="0.0001"></label>
             </div>
             <div class="field-row field-row-inline">
               <label>Aspect
@@ -114,8 +120,6 @@ export function renderSettings() {
             <div class="field-row">
               <label>Notes (optional) <input type="text" id="cf-notes" class="settings-input"></label>
             </div>
-            <input type="hidden" id="cf-lat">
-            <input type="hidden" id="cf-lon">
             <div class="field-row">
               <button id="btn-save-custom" class="settings-btn">Save Location</button>
               <button id="btn-cancel-custom" class="settings-btn settings-btn-sm">Cancel</button>
@@ -200,6 +204,7 @@ function renderCustomList() {
       <li>
         <span class="active-loc-name">${l.name} <span class="loc-county">(${l.county || 'no county'})</span></span>
         <div class="custom-loc-actions">
+          <button class="settings-btn-sm btn-edit-custom" data-id="${l.id}">Edit</button>
           <button class="settings-btn-sm btn-share-custom" data-id="${l.id}" title="Copy share link">Share link</button>
           <button class="settings-btn-icon btn-delete-custom" data-id="${l.id}" title="Delete" aria-label="Delete ${l.name}">🗑</button>
         </div>
@@ -262,8 +267,15 @@ function wireEvents() {
     renderActiveList();
   });
 
-  // Custom list: share + delete (delegated)
+  // Custom list: edit, share, delete (delegated)
   document.getElementById('custom-list').addEventListener('click', e => {
+    const editBtn = e.target.closest('.btn-edit-custom');
+    if (editBtn) {
+      const loc = getCustomLocations().find(l => l.id === editBtn.dataset.id);
+      if (loc) openEditForm(loc);
+      return;
+    }
+
     const shareBtn = e.target.closest('.btn-share-custom');
     if (shareBtn) {
       const loc = getCustomLocations().find(l => l.id === shareBtn.dataset.id);
@@ -286,10 +298,16 @@ function wireEvents() {
     }
   });
 
-  // Add custom form toggle
+  // Add custom form toggle — always opens in add mode
   document.getElementById('btn-add-custom').addEventListener('click', () => {
     const form = document.getElementById('add-custom-form');
-    form.hidden = !form.hidden;
+    if (!form.hidden && !_editingId) {
+      form.hidden = true;
+      resetAddForm();
+    } else {
+      resetAddForm();
+      form.hidden = false;
+    }
   });
 
   // Geocoding search
@@ -329,6 +347,29 @@ function wireEvents() {
     reader.readAsText(file);
     e.target.value = ''; // allow re-import of same file
   });
+}
+
+// ── Edit form ────────────────────────────────────────────────────────────────
+
+function openEditForm(loc) {
+  resetAddForm();
+  _editingId = loc.id;
+  document.getElementById('custom-form-title').textContent = 'Edit Location';
+  document.getElementById('btn-save-custom').textContent = 'Save Changes';
+  document.getElementById('cf-name').value = loc.name;
+  document.getElementById('cf-lat').value = loc.lat;
+  document.getElementById('cf-lon').value = loc.lon;
+  document.getElementById('cf-elevation').value = loc.elevation_m || '';
+  document.getElementById('cf-aspect').value = loc.aspect || '';
+  document.getElementById('cf-rock').value = loc.rock_type || '';
+  document.getElementById('cf-region').value = loc.region || '';
+  const countySelect = document.getElementById('cf-county');
+  countySelect.value = loc.county || '';
+  document.getElementById('cf-notes').value = loc.notes || '';
+  document.getElementById('custom-fields').hidden = false;
+  const form = document.getElementById('add-custom-form');
+  form.hidden = false;
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── Geocoding ────────────────────────────────────────────────────────────────
@@ -429,12 +470,12 @@ function saveCustomLocation() {
   const region = document.getElementById('cf-region').value;
 
   if (!name) { showToast('Please enter a name.'); return; }
-  if (isNaN(lat) || isNaN(lon)) { showToast('Please select a search result first.'); return; }
+  if (isNaN(lat) || isNaN(lon)) { showToast('Please enter valid coordinates.'); return; }
   if (!aspect) { showToast('Please select an aspect.'); return; }
   if (!rock_type) { showToast('Please select a rock type.'); return; }
   if (!region) { showToast('Please select a region.'); return; }
 
-  const loc = {
+  const locData = {
     name,
     lat,
     lon,
@@ -448,13 +489,15 @@ function saveCustomLocation() {
     featured: false,
   };
 
-  const saved = addCustomLocation(loc);
-  if (!saved) {
-    showToast('Storage full — could not save location.');
-    return;
+  if (_editingId) {
+    updateCustomLocation(_editingId, locData);
+    showToast(`"${name}" updated.`);
+  } else {
+    const saved = addCustomLocation(locData);
+    if (!saved) { showToast('Storage full — could not save location.'); return; }
+    showToast(`"${saved.name}" added.`);
   }
 
-  showToast(`"${saved.name}" added.`);
   resetAddForm();
   document.getElementById('add-custom-form').hidden = true;
   renderCustomList();
@@ -463,6 +506,11 @@ function saveCustomLocation() {
 }
 
 function resetAddForm() {
+  _editingId = null;
+  const titleEl = document.getElementById('custom-form-title');
+  if (titleEl) titleEl.textContent = 'Add Custom Location';
+  const saveBtn = document.getElementById('btn-save-custom');
+  if (saveBtn) saveBtn.textContent = 'Save Location';
   document.getElementById('geocode-input').value = '';
   document.getElementById('geocode-results').innerHTML = '';
   document.getElementById('custom-fields').hidden = true;
