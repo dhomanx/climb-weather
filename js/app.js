@@ -1,4 +1,4 @@
-import { loadLocations, getLocation } from './locations.js';
+import { loadLocations, getLocation, getActiveLocations } from './locations.js';
 import { renderOverview } from './pages/overview.js';
 import { renderDetail } from './pages/detail.js';
 import { renderDebug } from './pages/debug.js';
@@ -61,7 +61,7 @@ function handleRoute() {
   const page = segments[0] || 'overview';
 
   if (page === '' || page === 'overview') {
-    renderOverview(locations, params);
+    renderOverview(getActiveLocations(), params);
   } else if (page === 'location' && segments[1]) {
     const location = getLocation(segments[1]);
     if (location) {
@@ -71,10 +71,12 @@ function handleRoute() {
     }
   } else if (page === 'about') {
     renderAbout();
+  } else if (page === 'settings') {
+    import('./pages/settings.js').then(({ renderSettings }) => renderSettings());
   } else if (page === 'debug') {
     renderDebug();
   } else {
-    renderOverview(locations, params);
+    renderOverview(getActiveLocations(), params);
   }
 }
 

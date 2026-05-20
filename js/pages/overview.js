@@ -14,6 +14,7 @@ import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
 import { getMode } from '../settings.js';
 import { registerModeHandler } from '../events.js';
+import { getActiveLocations, importCustomLocationsFromParam } from '../locations.js';
 
 // Module-level cache so mode changes can re-score without re-fetching
 let _currentDays = [];
@@ -21,7 +22,16 @@ const _locDataCache = new Map(); // locId → { mn: dailySummaries[], om: dailyS
 let _daytimeOnly = localStorage.getItem('icw:daytimeOnly') === 'true';
 let _appClickController = null; // AbortController for the app click listener
 
-export async function renderOverview(locations, params, { preserveCache = false } = {}) {
+export async function renderOverview(_passedLocations, params, { preserveCache = false } = {}) {
+  // Always use the live active set so settings changes take effect immediately
+  const locations = getActiveLocations();
+
+  // Handle ?cl= custom location import (before ?fav= so new locations can be favourited)
+  if (params.has('cl')) {
+    const imported = importCustomLocationsFromParam(params.getAll('cl'));
+    if (imported > 0) showToast(`${imported} custom location${imported > 1 ? 's' : ''} imported from link.`);
+  }
+
   // Handle ?fav= import
   if (params.has('fav')) {
     const ids = params.get('fav').split(',').filter(Boolean);
@@ -30,6 +40,15 @@ export async function renderOverview(locations, params, { preserveCache = false 
   }
 
   const mode = getMode();
+
+  if (!locations.length) {
+    document.getElementById('app').innerHTML = `
+      <div class="error-state" style="padding:2rem">
+        <p>No locations selected. <a href="#/settings">Go to Settings</a> to choose locations.</p>
+      </div>`;
+    return;
+  }
+
   if (!preserveCache) {
     _locDataCache.clear();
     // Synchronously pre-populate from localStorage so cells can render immediately
@@ -147,7 +166,7 @@ export async function renderOverview(locations, params, { preserveCache = false 
     const id = favBtn.dataset.id;
     const nowFav = toggleFavourite(id);
     showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
-    renderOverview(locations, new URLSearchParams(), { preserveCache: true });
+    renderOverview(null, new URLSearchParams(), { preserveCache: true });
   }, { signal: _appClickController.signal });
 
   // Render any cached data immediately — no loading flash for fresh locations

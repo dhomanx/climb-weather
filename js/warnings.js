@@ -7,7 +7,7 @@ export async function loadAndRenderWarnings(locations) {
   try {
     const xml = await fetchWarnings();
     const warnings = parseWarnings(xml);
-    const relevantCounties = new Set(locations.map(l => l.county.toLowerCase()));
+    const relevantCounties = new Set(locations.map(l => l.county).filter(Boolean).map(c => c.toLowerCase()));
 
     const active = warnings.filter(w =>
       w.counties.some(c => relevantCounties.has(c.toLowerCase())) ||
@@ -38,6 +38,7 @@ function renderWarningsBanner(container, warnings) {
 
 export function renderLocationWarnings(container, warnings, county) {
   container.innerHTML = '';
+  if (!county) return;
   const relevant = warnings.filter(w =>
     w.counties.length === 0 ||
     w.counties.some(c => c.toLowerCase() === county.toLowerCase())
