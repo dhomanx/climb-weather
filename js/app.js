@@ -2,8 +2,8 @@ import { loadLocations, getLocation, getActiveLocations } from './locations.js';
 import { renderOverview } from './pages/overview.js';
 import { renderDetail } from './pages/detail.js';
 import { renderDebug } from './pages/debug.js';
-import { getMode, setMode } from './settings.js';
-import { triggerModeChange } from './events.js';
+import { getMode, setMode, getModelSource, setModelSource } from './settings.js';
+import { triggerModeChange, triggerModelChange } from './events.js';
 import { showFreshnessBar } from './ui.js';
 import { getOldestCacheTimestamp } from './api.js';
 
@@ -34,9 +34,10 @@ async function init() {
 
 function initStickyBar() {
   refreshFreshness(); // show cached state immediately on load
-  const current = getMode();
+
+  const currentMode = getMode();
   document.querySelectorAll('#sticky-bar .mode-btn').forEach(btn => {
-    btn.classList.toggle('mode-active', btn.dataset.mode === current);
+    btn.classList.toggle('mode-active', btn.dataset.mode === currentMode);
     btn.addEventListener('click', () => {
       const newMode = btn.dataset.mode;
       setMode(newMode);
@@ -45,6 +46,28 @@ function initStickyBar() {
       triggerModeChange(newMode);
     });
   });
+
+  const syncModeButtons = source => {
+    const locked = source !== 'both';
+    document.querySelectorAll('#sticky-bar .mode-btn').forEach(b => {
+      b.disabled = locked;
+      b.classList.toggle('mode-locked', locked);
+    });
+  };
+
+  const currentSource = getModelSource();
+  document.querySelectorAll('#sticky-bar .model-btn').forEach(btn => {
+    btn.classList.toggle('model-active', btn.dataset.model === currentSource);
+    btn.addEventListener('click', () => {
+      const newSource = btn.dataset.model;
+      setModelSource(newSource);
+      document.querySelectorAll('#sticky-bar .model-btn').forEach(b =>
+        b.classList.toggle('model-active', b.dataset.model === newSource));
+      syncModeButtons(newSource);
+      triggerModelChange(newSource);
+    });
+  });
+  syncModeButtons(currentSource);
 
   const modal = document.getElementById('bar-info-modal');
   document.getElementById('bar-info-btn')?.addEventListener('click', () => modal.hidden = false);

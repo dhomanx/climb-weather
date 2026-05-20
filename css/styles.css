@@ -578,6 +578,46 @@ footer {
 }
 .mode-about-link:hover { border-color: var(--grey-mid); color: var(--text); }
 
+.bar-separator {
+  width: 1px;
+  height: 1.1rem;
+  background: var(--border);
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.model-buttons { display: flex; gap: 0.2rem; }
+.model-btn {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+}
+.model-btn:hover { border-color: var(--grey-mid); color: var(--text); }
+.model-btn.model-active[data-model="both"] {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--text);
+  border-width: 2px;
+}
+.model-btn.model-active[data-model="mn"],
+.model-btn.model-active[data-model="om"] {
+  background: var(--amber-bg);
+  color: var(--amber-fg);
+  border-color: var(--amber-fg);
+  border-width: 2px;
+  font-weight: 700;
+}
+
+.mode-btn.mode-locked {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .bar-modal {
   position: fixed;
   inset: 0;

@@ -12,8 +12,8 @@ import {
 
 import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
-import { getMode } from '../settings.js';
-import { registerModeHandler } from '../events.js';
+import { getMode, getModelSource } from '../settings.js';
+import { registerModeHandler, registerModelHandler } from '../events.js';
 import { getActiveLocations, importCustomLocationsFromParam, groupByRegion } from '../locations.js';
 
 // Module-level cache so mode changes can re-score without re-fetching
@@ -147,8 +147,18 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
   });
 
   registerModeHandler(newMode => {
+    const source = getModelSource();
     for (const [locId, { mn, om }] of _locDataCache) {
-      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, newMode);
+      const [primary, secondary] = getSourcesForModel(mn, om, source);
+      if (primary) renderLocationCells(locId, primary, _currentDays, secondary, true, newMode);
+    }
+  });
+
+  registerModelHandler(newSource => {
+    const mode = getMode();
+    for (const [locId, { mn, om }] of _locDataCache) {
+      const [primary, secondary] = getSourcesForModel(mn, om, newSource);
+      if (primary) renderLocationCells(locId, primary, _currentDays, secondary, true, mode);
     }
   });
 
@@ -160,8 +170,10 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
       ? 'Rain shown is 10am–8pm only. Tap any location for full conditions.'
       : 'Colour shows expected daily precipitation only. Tap any location for full conditions including wind and humidity.';
     const mode = getMode();
+    const src = getModelSource();
     for (const [locId, { mn, om }] of _locDataCache) {
-      if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, true, mode);
+      const [primary, secondary] = getSourcesForModel(mn, om, src);
+      if (primary) renderLocationCells(locId, primary, _currentDays, secondary, true, mode);
     }
   });
 
@@ -177,8 +189,10 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
   }, { signal: _appClickController.signal });
 
   // Render any cached data immediately — no loading flash for fresh locations
+  const source = getModelSource();
   for (const [locId, { mn, om }] of _locDataCache) {
-    if (mn || om) renderLocationCells(locId, mn ?? om, _currentDays, mn && om ? om : null, false, mode);
+    const [primary, secondary] = getSourcesForModel(mn, om, source);
+    if (primary) renderLocationCells(locId, primary, _currentDays, secondary, false, mode);
   }
 
   // Load warnings in parallel (non-blocking)
@@ -199,6 +213,8 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
 }
 
 async function fetchForecastsForLocation(loc, days, mode) {
+  const source = getModelSource();
+
   const mnPromise = fetchMetNorwayForecast(loc.lat, loc.lon)
     .then(parseMetNorwayForecast)
     .then(buildDailySummaries);
@@ -206,20 +222,19 @@ async function fetchForecastsForLocation(loc, days, mode) {
     .then(parseOpenMeteoForecast)
     .then(buildDailySummaries);
 
-  // First source wins — render immediately
-  let firstSource = null;
-
+  // Show an intermediate result as soon as the relevant model arrives
+  let firstRendered = false;
   const settled = await Promise.allSettled([
     mnPromise.then(summaries => {
-      if (!firstSource) {
-        firstSource = 'mn';
+      if (!firstRendered && source !== 'om') {
+        firstRendered = true;
         renderLocationCells(loc.id, summaries, days, null, false, mode);
       }
       return summaries;
     }),
     omPromise.then(summaries => {
-      if (!firstSource) {
-        firstSource = 'om';
+      if (!firstRendered && source !== 'mn') {
+        firstRendered = true;
         renderLocationCells(loc.id, summaries, days, null, false, mode);
       }
       return summaries;
@@ -230,12 +245,12 @@ async function fetchForecastsForLocation(loc, days, mode) {
   const mnSummaries = mnResult.status === 'fulfilled' ? mnResult.value : null;
   const omSummaries = omResult.status === 'fulfilled' ? omResult.value : null;
 
-  // Cache for instant mode switching
   _locDataCache.set(loc.id, { mn: mnSummaries, om: omSummaries });
 
-  if (mnSummaries && omSummaries) {
-    renderLocationCells(loc.id, mnSummaries, days, omSummaries, true, mode);
-  } else if (!mnSummaries && !omSummaries) {
+  const [primary, secondary] = getSourcesForModel(mnSummaries, omSummaries, source);
+  if (primary) {
+    renderLocationCells(loc.id, primary, days, secondary, true, mode);
+  } else {
     days.forEach(d => {
       const cell = document.querySelector(`.score-cell[data-loc="${loc.id}"][data-date="${d}"]`);
       if (cell) {
@@ -286,6 +301,12 @@ function renderLocationCells(locId, primarySummaries, days, secondarySummaries, 
     cell.style.cursor = 'pointer';
     cell.title = `${scoreLabel(score)} — ${params.totalPrecip.toFixed(1)}mm, wind ${Math.round(params.maxWind)}km/h`;
   }
+}
+
+function getSourcesForModel(mn, om, source) {
+  if (source === 'mn') return [mn, null];
+  if (source === 'om') return [om, null];
+  return [mn ?? om, mn && om ? om : null];
 }
 
 function scoreLabel(score) {
