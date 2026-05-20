@@ -14,7 +14,7 @@ import { loadAndRenderWarnings } from '../warnings.js';
 import { getFavourites, toggleFavourite, isFavourite, importFavourites, shareFavourites } from '../favourites.js';
 import { getMode } from '../settings.js';
 import { registerModeHandler } from '../events.js';
-import { getActiveLocations, importCustomLocationsFromParam } from '../locations.js';
+import { getActiveLocations, importCustomLocationsFromParam, groupByRegion } from '../locations.js';
 
 // Module-level cache so mode changes can re-score without re-fetching
 let _currentDays = [];
@@ -76,7 +76,7 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
   const pinned = allLocs.filter(l => pinnedIds.has(l.id));
   const rest = allLocs.filter(l => !pinnedIds.has(l.id));
 
-  function buildRows(locs, isPinned) {
+  function buildRows(locs) {
     return locs.map(loc => {
       const cells = days.map(d =>
         `<td class="score-cell loading" data-loc="${loc.id}" data-date="${d}">
@@ -87,8 +87,10 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
       const starClass = isFavourite(loc.id) ? 'fav-star active' : 'fav-star';
       return `
         <tr data-location="${loc.id}">
-          <td class="loc-name-cell">
+          <td class="star-cell">
             <button class="${starClass}" data-id="${loc.id}" title="Favourite" aria-label="Toggle favourite">★</button>
+          </td>
+          <td class="loc-name-cell">
             <a href="#/location/${loc.id}">${loc.name}</a>
           </td>
           ${cells}
@@ -96,16 +98,20 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
     }).join('');
   }
 
+  const totalCols = days.length + 2;
   let tableBody = '';
   if (pinned.length) {
-    tableBody += `
-      <tbody class="pinned-group">
-        <tr class="group-header pinned-header"><td colspan="${days.length + 1}">⭐ Favourites</td></tr>
-        ${buildRows(pinned, true)}
-      </tbody>`;
+    tableBody += `<tbody class="pinned-group">${buildRows(pinned)}</tbody>`;
   }
   if (rest.length) {
-    tableBody += `<tbody>${buildRows(rest, false)}</tbody>`;
+    const groups = groupByRegion(rest);
+    for (const { region, locations: locs } of groups) {
+      tableBody += `
+        <tbody>
+          <tr class="group-header"><td colspan="${totalCols}">${region}</td></tr>
+          ${buildRows(locs)}
+        </tbody>`;
+    }
   }
 
   app.innerHTML = `
@@ -121,6 +127,7 @@ export async function renderOverview(_passedLocations, params, { preserveCache =
       <table class="overview-table">
         <thead>
           <tr>
+            <th class="star-col"></th>
             <th class="loc-col">Location</th>
             ${dayHeaders}
           </tr>

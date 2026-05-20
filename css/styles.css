@@ -192,11 +192,32 @@ footer {
   white-space: nowrap;
 }
 
+.star-col {
+  width: 28px;
+  min-width: 28px;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+  padding: 0;
+}
+
+.star-cell {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+  width: 28px;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .loc-col {
   min-width: 90px;
   width: 90px;
   position: sticky;
-  left: 0;
+  left: 28px;
   background: var(--surface);
   z-index: 1;
   text-align: left !important;
@@ -204,7 +225,7 @@ footer {
 
 .loc-name-cell {
   position: sticky;
-  left: 0;
+  left: 28px;
   background: var(--surface);
   z-index: 1;
   min-width: 90px;
