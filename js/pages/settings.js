@@ -18,6 +18,7 @@ const IRISH_COUNTIES = [
 const ASPECTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const ROCK_TYPES = ['granite', 'quartzite', 'limestone', 'sandstone', 'dolerite', 'basalt', 'mica-schist', 'schist', 'gneiss', 'other'];
 const REGIONS = ['Leinster', 'Munster', 'Connacht', 'Ulster'];
+const NI_COUNTIES = new Set(['Antrim', 'Down', 'Armagh', 'Fermanagh', 'Derry/Londonderry', 'Tyrone']);
 
 export function renderSettings() {
   const app = document.getElementById('app');
@@ -60,12 +61,14 @@ export function renderSettings() {
             <div class="field-row field-row-inline">
               <label>Aspect
                 <select id="cf-aspect" class="settings-select">
+                  <option value="">Select aspect…</option>
                   ${ASPECTS.map(a => `<option>${a}</option>`).join('')}
                 </select>
               </label>
               <label>Elevation (m) <input type="number" id="cf-elevation" class="settings-input" style="width:80px"></label>
               <label>Rock type
                 <select id="cf-rock" class="settings-select">
+                  <option value="">Select rock type…</option>
                   ${ROCK_TYPES.map(r => `<option>${r}</option>`).join('')}
                 </select>
               </label>
@@ -73,12 +76,13 @@ export function renderSettings() {
             <div class="field-row field-row-inline">
               <label>Region
                 <select id="cf-region" class="settings-select">
+                  <option value="">Select region…</option>
                   ${REGIONS.map(r => `<option>${r}</option>`).join('')}
                 </select>
               </label>
               <label>County (for weather warnings)
                 <select id="cf-county" class="settings-select">
-                  <option value="">— Unknown / skip warnings —</option>
+                  <option value="">Skip Warnings</option>
                   ${IRISH_COUNTIES.map(c => `<option>${c}</option>`).join('')}
                 </select>
               </label>
@@ -305,7 +309,7 @@ async function runGeocode() {
   document.getElementById('custom-fields').hidden = true;
 
   try {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`;
     const resp = await fetch(url);
     const data = await resp.json();
 
@@ -314,10 +318,13 @@ async function runGeocode() {
       return;
     }
 
+    // Sort: Republic of Ireland first, then Northern Ireland, then everywhere else
+    const sorted = data.results.slice().sort((a, b) => irelandScore(a) - irelandScore(b)).slice(0, 5);
+
     resultsEl.innerHTML = `
       <p class="settings-hint">Select a result to prefill coordinates:</p>
       <ul class="geocode-result-list">
-        ${data.results.map((r, i) => `
+        ${sorted.map((r, i) => `
           <li>
             <label>
               <input type="radio" name="geocode-pick" value="${i}" data-result='${JSON.stringify({ lat: r.latitude, lon: r.longitude, elevation: r.elevation ?? '', name: r.name, county: deriveCounty(r) })}'>
@@ -333,18 +340,26 @@ async function runGeocode() {
         document.getElementById('cf-lat').value = r.lat;
         document.getElementById('cf-lon').value = r.lon;
         if (r.elevation !== '') document.getElementById('cf-elevation').value = Math.round(r.elevation);
-        if (!document.getElementById('cf-name').value) document.getElementById('cf-name').value = r.name;
-        if (r.county) {
-          const countySelect = document.getElementById('cf-county');
-          const opt = [...countySelect.options].find(o => o.value === r.county);
-          if (opt) countySelect.value = r.county;
-        }
+        // Always update name and reset selects when a new result is chosen
+        document.getElementById('cf-name').value = r.name;
+        document.getElementById('cf-aspect').value = '';
+        document.getElementById('cf-rock').value = '';
+        document.getElementById('cf-region').value = '';
+        const countySelect = document.getElementById('cf-county');
+        countySelect.value = r.county && [...countySelect.options].some(o => o.value === r.county) ? r.county : '';
         document.getElementById('custom-fields').hidden = false;
       });
     });
   } catch {
     resultsEl.innerHTML = '<p class="settings-hint">Search failed — check your connection.</p>';
   }
+}
+
+function irelandScore(r) {
+  if (r.country === 'Ireland') return 0;
+  const admin1 = (r.admin1 ?? '').replace(/^County\s+/i, '').trim();
+  if (r.country === 'United Kingdom' && NI_COUNTIES.has(admin1)) return 1;
+  return 2;
 }
 
 function deriveCounty(geocodeResult) {
@@ -358,18 +373,24 @@ function saveCustomLocation() {
   const name = document.getElementById('cf-name').value.trim();
   const lat = parseFloat(document.getElementById('cf-lat').value);
   const lon = parseFloat(document.getElementById('cf-lon').value);
+  const aspect = document.getElementById('cf-aspect').value;
+  const rock_type = document.getElementById('cf-rock').value;
+  const region = document.getElementById('cf-region').value;
 
   if (!name) { showToast('Please enter a name.'); return; }
   if (isNaN(lat) || isNaN(lon)) { showToast('Please select a search result first.'); return; }
+  if (!aspect) { showToast('Please select an aspect.'); return; }
+  if (!rock_type) { showToast('Please select a rock type.'); return; }
+  if (!region) { showToast('Please select a region.'); return; }
 
   const loc = {
     name,
     lat,
     lon,
     elevation_m: parseInt(document.getElementById('cf-elevation').value) || 0,
-    aspect: document.getElementById('cf-aspect').value,
-    rock_type: document.getElementById('cf-rock').value,
-    region: document.getElementById('cf-region').value,
+    aspect,
+    rock_type,
+    region,
     county: document.getElementById('cf-county').value,
     nearest_station: '',
     notes: document.getElementById('cf-notes').value.trim(),
@@ -399,4 +420,8 @@ function resetAddForm() {
   document.getElementById('cf-notes').value = '';
   document.getElementById('cf-lat').value = '';
   document.getElementById('cf-lon').value = '';
+  document.getElementById('cf-aspect').value = '';
+  document.getElementById('cf-rock').value = '';
+  document.getElementById('cf-region').value = '';
+  document.getElementById('cf-county').value = '';
 }
