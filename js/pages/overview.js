@@ -265,7 +265,7 @@ function renderLocationCells(locId, primarySummaries, days, secondarySummaries, 
       continue;
     }
 
-    const precipKey = _daytimeOnly ? 'climbingHoursPrecip' : 'totalPrecip';
+    const precipKey = _daytimeOnly ? 'effectiveClimbingHoursPrecip' : 'effectiveTotalPrecip';
     let params = { totalPrecip: primary[precipKey] ?? 0, maxWind: primary.maxWind, avgHumidity: primary.avgHumidity };
     if (secondary[day]) {
       params = combineDailyParams(params, {
