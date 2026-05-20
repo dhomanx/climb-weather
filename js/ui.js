@@ -46,7 +46,7 @@ export function windArrow(degrees) {
   const span = document.createElement('span');
   span.className = 'wind-arrow';
   span.style.display = 'inline-block';
-  span.style.transform = `rotate(${degrees}deg)`;
+  span.style.transform = `rotate(${(degrees + 180) % 360}deg)`;
   span.textContent = '↑';
   span.title = `${Math.round(degrees)}°`;
   return span;

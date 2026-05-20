@@ -282,7 +282,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
       <td class="score-${scorePrecip(eff)}">${p.precip.toFixed(1)}</td>
       <td class="prob-cell">${probStr}</td>
       <td class="score-${scoreTemp(p.tempC)}">${Math.round(p.tempC)}°</td>
-      <td class="wind-cell score-${scoreWind(p.windKmh)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(p.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDeg}deg)">↑</span></td>
+      <td class="wind-cell score-${scoreWind(p.windKmh)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(p.windKmh)}&thinsp;<span class="wind-arrow" style="transform:rotate(${(windDeg + 180) % 360}deg)">↑</span></td>
       <td class="score-${scoreHumidity(p.humidity)}">${Math.round(p.humidity)}</td>
       <td>${Math.round(p.cloudPct ?? 0)}</td>
       <td class="exposure-${expClass}">${exposure}</td>
@@ -362,7 +362,7 @@ function renderHourly(location, mnHourly, omHourly, mode) {
       <td class="score-${scoreDailyPrecip(eff)}">${totalPrecip.toFixed(1)}</td>
       <td class="prob-cell">${bandProbStr}</td>
       <td class="score-${scoreTemp(avgTemp)}">${Math.round(avgTemp)}°</td>
-      <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${windDir}deg)">↑</span></td>
+      <td class="wind-cell score-${scoreWind(maxWind)}" title="from ${cardinal}" data-cardinal="${cardinal}">${Math.round(maxWind)}&thinsp;<span class="wind-arrow" style="transform:rotate(${(windDir + 180) % 360}deg)">↑</span></td>
       <td class="score-${scoreHumidity(avgHum)}">${Math.round(avgHum)}</td>
       <td>${Math.round(avgCloud)}</td>
       <td class="exposure-${expClass}">${exposure}</td>
