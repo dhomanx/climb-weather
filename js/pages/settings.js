@@ -75,7 +75,7 @@ export function renderSettings() {
         <div id="add-custom-form" hidden>
           <h3 id="custom-form-title">Add Custom Location</h3>
           <div class="geocode-row">
-            <input type="text" id="geocode-input" class="settings-input" placeholder="Search place name…" autocomplete="off">
+            <input type="text" id="geocode-input" class="settings-input" placeholder="Place name, coordinates (53.30,−6.18), or Google Maps link…" autocomplete="off">
             <button id="btn-geocode" class="settings-btn">Search</button>
           </div>
           <div id="geocode-results"></div>
@@ -374,13 +374,75 @@ function openEditForm(loc) {
 
 // ── Geocoding ────────────────────────────────────────────────────────────────
 
+function tryParseCoords(text) {
+  // "53.303782,-6.182206" or "53.303782, -6.182206"
+  const direct = text.match(/^(-?\d{1,3}\.?\d*)\s*,\s*(-?\d{1,3}\.?\d*)$/);
+  if (direct) {
+    const lat = parseFloat(direct[1]), lon = parseFloat(direct[2]);
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+  }
+  // Google Maps URL: /place/Name/@lat,lon,zoom or /@lat,lon,zoom
+  const atMatch = text.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) {
+    const lat = parseFloat(atMatch[1]), lon = parseFloat(atMatch[2]);
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+  }
+  // ?q=lat,lon or ?ll=lat,lon
+  const qMatch = text.match(/[?&](?:q|ll)=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) {
+    const lat = parseFloat(qMatch[1]), lon = parseFloat(qMatch[2]);
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+  }
+  return null;
+}
+
+function applyParsedCoords({ lat, lon }, resultsEl) {
+  resultsEl.innerHTML = `<p class="settings-hint">Coordinates detected: ${lat}, ${lon} — fill in the name and details below.</p>`;
+  document.getElementById('cf-lat').value = lat;
+  document.getElementById('cf-lon').value = lon;
+  document.getElementById('cf-elevation').value = '';
+  document.getElementById('cf-name').value = '';
+  document.getElementById('cf-aspect').value = '';
+  document.getElementById('cf-rock').value = '';
+  document.getElementById('cf-region').value = '';
+  document.getElementById('cf-county').value = '';
+  document.getElementById('custom-fields').hidden = false;
+}
+
 async function runGeocode() {
   const query = document.getElementById('geocode-input').value.trim();
   if (!query) return;
 
   const resultsEl = document.getElementById('geocode-results');
-  resultsEl.innerHTML = '<p class="settings-hint">Searching…</p>';
   document.getElementById('custom-fields').hidden = true;
+
+  // Direct coordinate or full Google Maps URL
+  const parsed = tryParseCoords(query);
+  if (parsed) {
+    applyParsedCoords(parsed, resultsEl);
+    return;
+  }
+
+  // Short maps.app.goo.gl URL — resolve via CORS proxy then parse final URL
+  if (/maps\.app\.goo\.gl\//i.test(query) || /goo\.gl\/maps\//i.test(query)) {
+    resultsEl.innerHTML = '<p class="settings-hint">Resolving link…</p>';
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(query)}`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      const finalParsed = tryParseCoords(data.status?.url ?? '');
+      if (finalParsed) {
+        applyParsedCoords(finalParsed, resultsEl);
+      } else {
+        resultsEl.innerHTML = '<p class="settings-hint">Could not extract coordinates from that link. Copy the coordinates shown in the Google Maps sharing dialog (e.g. 53.303782,−6.182206) and paste those instead.</p>';
+      }
+    } catch {
+      resultsEl.innerHTML = '<p class="settings-hint">Could not resolve link. Copy the coordinates from the Google Maps sharing dialog and paste them directly.</p>';
+    }
+    return;
+  }
+
+  resultsEl.innerHTML = '<p class="settings-hint">Searching…</p>';
 
   try {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`;
