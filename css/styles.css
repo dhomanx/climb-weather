@@ -231,7 +231,6 @@ footer {
   min-width: 90px;
   width: 90px;
   white-space: normal;
-  word-break: break-word;
   overflow-wrap: break-word;
 }
 
