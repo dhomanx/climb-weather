@@ -61,14 +61,14 @@ export function renderSettings() {
             <div class="field-row field-row-inline">
               <label>Aspect
                 <select id="cf-aspect" class="settings-select">
-                  <option value="">Select aspect…</option>
+                  <option value="">Select</option>
                   ${ASPECTS.map(a => `<option>${a}</option>`).join('')}
                 </select>
               </label>
               <label>Elevation (m) <input type="number" id="cf-elevation" class="settings-input" style="width:80px"></label>
               <label>Rock type
                 <select id="cf-rock" class="settings-select">
-                  <option value="">Select rock type…</option>
+                  <option value="">Select</option>
                   ${ROCK_TYPES.map(r => `<option>${r}</option>`).join('')}
                 </select>
               </label>
@@ -76,7 +76,7 @@ export function renderSettings() {
             <div class="field-row field-row-inline">
               <label>Region
                 <select id="cf-region" class="settings-select">
-                  <option value="">Select region…</option>
+                  <option value="">Select</option>
                   ${REGIONS.map(r => `<option>${r}</option>`).join('')}
                 </select>
               </label>
