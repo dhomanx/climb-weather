@@ -237,6 +237,11 @@ function renderDaylight(sunriseData) {
   el.innerHTML = `<span>🌅 ${formatTime(sunrise)}</span><span>🌇 ${formatTime(sunset)}</span>`;
 }
 
+function formatDayHeader(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br><span style="white-space:nowrap">${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>`;
+}
+
 function renderHourly(location, mnHourly, omHourly, mode) {
   const section = document.getElementById('hourly-section');
   const now = new Date();
@@ -258,11 +263,6 @@ function renderHourly(location, mnHourly, omHourly, mode) {
   const firstBandKey = allKeys.find(k => mnByTime[k]?.interval === 6);
   const hourlyKeys = firstBandKey ? allKeys.filter(k => k < firstBandKey) : allKeys;
   const bandAnchors = allKeys.filter(k => k >= (firstBandKey ?? '￿') && mnByTime[k]?.interval === 6);
-
-  function formatDayHeader(dateStr) {
-    const d = new Date(dateStr + 'T12:00:00');
-    return `${d.toLocaleDateString('en-IE', { weekday: 'short' })}<br><span style="white-space:nowrap">${d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>`;
-  }
 
   const REST_HEADERS = `<th>Precip<br>mm</th><th>Prob<br>%</th><th>Temp</th><th>Wind<br>km/h</th><th>Hum&nbsp;%</th><th>Cloud&nbsp;%</th><th>Shelter</th>`;
 
@@ -430,9 +430,21 @@ function renderModelComparison(mnHourly, omHourly, mode) {
   const hourlyKeys = firstBandKey ? allKeys.filter(k => k < firstBandKey) : allKeys;
   const bandAnchors = allKeys.filter(k => k >= (firstBandKey ?? '￿') && mnByTime[k]?.interval === 6);
 
+  const MODEL_REST_HEADERS = `<th>MET Norway<br>mm</th><th>Open-Meteo<br>mm</th><th>Prob&nbsp;%</th><th>Agreement</th>`;
   const rows = [];
+  let currentDate = null;
+
+  function checkDayChange(dateStr) {
+    if (dateStr !== currentDate) {
+      if (currentDate !== null) {
+        rows.push(`<tr class="day-header-row"><th>${formatDayHeader(dateStr)}</th>${MODEL_REST_HEADERS}</tr>`);
+      }
+      currentDate = dateStr;
+    }
+  }
 
   for (const k of hourlyKeys) {
+    checkDayChange(k.slice(0, 10));
     const mn = mnByTime[k]?.precip ?? 0;
     const om = omByTime[k]?.precip ?? 0;
     const omProb = omByTime[k]?.precipProb;
@@ -449,6 +461,7 @@ function renderModelComparison(mnHourly, omHourly, mode) {
   }
 
   for (const k of bandAnchors) {
+    checkDayChange(k.slice(0, 10));
     const mn = mnByTime[k]?.precip ?? 0;
     // Aggregate OM over the same 6h window so the comparison is like-for-like
     let omPrecip = 0, omProbSum = 0, omProbCount = 0;
@@ -477,6 +490,7 @@ function renderModelComparison(mnHourly, omHourly, mode) {
     </tr>`);
   }
 
+  const firstDate = (hourlyKeys[0] ?? bandAnchors[0] ?? '').slice(0, 10);
   const modeLabels = { optimistic: 'the lower value', balanced: 'the average', pessimistic: 'the higher value' };
   section.innerHTML = `
     <details class="model-details">
@@ -484,7 +498,7 @@ function renderModelComparison(mnHourly, omHourly, mode) {
       <p class="model-note">MET Norway does not provide precipitation probability — prob % shown is Open-Meteo only. In <strong>${capitalise(mode)}</strong> mode, scores use ${modeLabels[mode]} when models differ.</p>
       <table class="model-table">
         <thead>
-          <tr><th>Time</th><th>MET Norway (mm)</th><th>Open-Meteo (mm)</th><th>Prob %</th><th>Agreement</th></tr>
+          <tr><th>${formatDayHeader(firstDate)}</th>${MODEL_REST_HEADERS}</tr>
         </thead>
         <tbody>${rows.join('')}</tbody>
       </table>
