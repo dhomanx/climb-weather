@@ -82,6 +82,7 @@ export function renderSettings() {
               </label>
               <label>County (for weather warnings)
                 <select id="cf-county" class="settings-select">
+                  <option value="" disabled selected>Select</option>
                   <option value="">Skip Warnings</option>
                   ${IRISH_COUNTIES.map(c => `<option>${c}</option>`).join('')}
                 </select>
@@ -441,5 +442,5 @@ function resetAddForm() {
   document.getElementById('cf-aspect').value = '';
   document.getElementById('cf-rock').value = '';
   document.getElementById('cf-region').value = '';
-  document.getElementById('cf-county').value = '';
+  document.getElementById('cf-county').selectedIndex = 0;
 }
