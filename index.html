@@ -9,6 +9,11 @@
   <meta name="theme-color" content="#1a3a1a" media="(prefers-color-scheme: dark)">
   <title>Irish Climbing Weather</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    const _t = localStorage.getItem('icw:theme');
+    if (_t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    else if (_t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  </script>
 </head>
 <body>
   <div id="warnings-banner" role="alert" aria-live="polite"></div>

@@ -20,12 +20,35 @@ const ROCK_TYPES = ['granite', 'quartzite', 'limestone', 'sandstone', 'dolerite'
 const REGIONS = ['Leinster', 'Munster', 'Connacht', 'Ulster'];
 const NI_COUNTIES = new Set(['Antrim', 'Down', 'Armagh', 'Fermanagh', 'Derry/Londonderry', 'Tyrone']);
 
+function getTheme() {
+  return localStorage.getItem('icw:theme') ?? 'auto';
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem('icw:theme', theme);
+}
+
 export function renderSettings() {
   const app = document.getElementById('app');
   app.innerHTML = `
     <div class="settings-page">
       <a href="#/overview" class="back-link">← Back to Overview</a>
-      <h1>Locations</h1>
+      <h1>Settings</h1>
+
+      <section class="settings-section">
+        <h2>Appearance</h2>
+        <div class="theme-toggle" id="theme-toggle">
+          <button class="theme-btn${getTheme() === 'auto'  ? ' theme-active' : ''}" data-theme="auto">Auto</button>
+          <button class="theme-btn${getTheme() === 'light' ? ' theme-active' : ''}" data-theme="light">Light</button>
+          <button class="theme-btn${getTheme() === 'dark'  ? ' theme-active' : ''}" data-theme="dark">Dark</button>
+        </div>
+        <p class="settings-hint">Auto follows your device setting.</p>
+      </section>
+
+      <h2 style="margin-top:1.5rem">Locations</h2>
 
       <section class="settings-section" id="settings-active">
         <h2>Active Locations</h2>
@@ -187,6 +210,15 @@ function renderCustomList() {
 // ── Event wiring ─────────────────────────────────────────────────────────────
 
 function wireEvents() {
+  // Theme toggle
+  document.getElementById('theme-toggle').addEventListener('click', e => {
+    const btn = e.target.closest('.theme-btn');
+    if (!btn) return;
+    applyTheme(btn.dataset.theme);
+    document.querySelectorAll('.theme-btn').forEach(b =>
+      b.classList.toggle('theme-active', b.dataset.theme === btn.dataset.theme));
+  });
+
   // Active list: remove buttons
   document.getElementById('active-list').addEventListener('click', e => {
     const btn = e.target.closest('.btn-remove-active');

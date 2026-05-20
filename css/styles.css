@@ -758,6 +758,29 @@ footer {
 }
 .import-label:hover { background: var(--grey-bg); }
 
+/* Theme toggle */
+.theme-toggle { display: flex; gap: 0; margin-bottom: 0.5rem; }
+.theme-btn {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  cursor: pointer;
+  color: var(--text);
+  margin-right: -1px;
+}
+.theme-btn:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.theme-btn:last-child  { border-radius: 0 var(--radius) var(--radius) 0; margin-right: 0; }
+.theme-btn:hover { background: var(--grey-bg); z-index: 1; position: relative; }
+.theme-btn.theme-active {
+  background: var(--green-mid);
+  border-color: var(--green-mid);
+  color: #fff;
+  z-index: 1;
+  position: relative;
+}
+
 /* Settings icon in sticky bar */
 .settings-link {
   font-size: 1rem;
@@ -777,43 +800,55 @@ footer {
 }
 
 /* ===== Dark mode ===== */
+/* Applied when: browser prefers dark AND user hasn't forced light */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --green-bg: #1b3a1b;
-    --green-fg: #a5d6a7;
-    --green-mid: #4caf50;
-    --amber-bg: #332800;
-    --amber-fg: #ffd54f;
-    --amber-mid: #ffb300;
-    --red-bg: #3b0000;
-    --red-fg: #ff8a80;
-    --red-mid: #ef5350;
-    --grey-bg: #2a2a2a;
-    --grey-mid: #757575;
-    --text: #e0e0e0;
-    --muted: #9e9e9e;
-    --border: #3a3a3a;
-    --surface: #121212;
+  html:not([data-theme="light"]) {
+    --green-bg: #1b3a1b; --green-fg: #a5d6a7; --green-mid: #4caf50;
+    --amber-bg: #332800; --amber-fg: #ffd54f; --amber-mid: #ffb300;
+    --red-bg: #3b0000;   --red-fg: #ff8a80;   --red-mid: #ef5350;
+    --grey-bg: #2a2a2a;  --grey-mid: #757575;
+    --text: #e0e0e0; --muted: #9e9e9e; --border: #3a3a3a; --surface: #121212;
+    color-scheme: dark;
   }
-
-  .warning-yellow { background: #2a2300; border-color: #f9a825; }
-  .warning-orange { background: #2a1500; border-color: #e65100; }
-  .warning-red    { background: #2a0000; border-color: #b71c1c; }
-
-  .pinned-header td { background: #1e1b00; color: #ffd54f; }
-
-  .precip-bar { background: #64b5f6; }
-
-  #toast { background: #444; }
-
-  .about-page a { color: #90caf9; }
-
-  .settings-link { color: var(--muted); }
-  .settings-btn { background: #2a2a2a; border-color: var(--border); }
-  .settings-btn-sm { background: #2a2a2a; border-color: var(--border); }
-  .settings-btn-danger { background: #3b0000; border-color: #7f0000; color: #ff8a80; }
-  .settings-input, .settings-select { background: #1e1e1e; border-color: var(--border); color: var(--text); }
-  .browse-region h3 { color: var(--muted); }
-  .geocode-result-list li:hover { background: #1e1e1e; }
-  .import-label { background: #2a2a2a; border-color: var(--border); }
+  html:not([data-theme="light"]) .warning-yellow { background: #2a2300; border-color: #f9a825; }
+  html:not([data-theme="light"]) .warning-orange { background: #2a1500; border-color: #e65100; }
+  html:not([data-theme="light"]) .warning-red    { background: #2a0000; border-color: #b71c1c; }
+  html:not([data-theme="light"]) .pinned-header td { background: #1e1b00; color: #ffd54f; }
+  html:not([data-theme="light"]) .precip-bar { background: #64b5f6; }
+  html:not([data-theme="light"]) #toast { background: #444; }
+  html:not([data-theme="light"]) .about-page a { color: #90caf9; }
+  html:not([data-theme="light"]) .settings-btn { background: #2a2a2a; border-color: var(--border); }
+  html:not([data-theme="light"]) .settings-btn-sm { background: #2a2a2a; border-color: var(--border); }
+  html:not([data-theme="light"]) .settings-btn-danger { background: #3b0000; border-color: #7f0000; color: #ff8a80; }
+  html:not([data-theme="light"]) .settings-input,
+  html:not([data-theme="light"]) .settings-select { background: #1e1e1e; border-color: var(--border); color: var(--text); }
+  html:not([data-theme="light"]) .geocode-result-list li:hover { background: #1e1e1e; }
+  html:not([data-theme="light"]) .import-label { background: #2a2a2a; border-color: var(--border); }
 }
+
+/* Applied when: user has explicitly chosen dark */
+html[data-theme="dark"] {
+  --green-bg: #1b3a1b; --green-fg: #a5d6a7; --green-mid: #4caf50;
+  --amber-bg: #332800; --amber-fg: #ffd54f; --amber-mid: #ffb300;
+  --red-bg: #3b0000;   --red-fg: #ff8a80;   --red-mid: #ef5350;
+  --grey-bg: #2a2a2a;  --grey-mid: #757575;
+  --text: #e0e0e0; --muted: #9e9e9e; --border: #3a3a3a; --surface: #121212;
+  color-scheme: dark;
+}
+html[data-theme="dark"] .warning-yellow { background: #2a2300; border-color: #f9a825; }
+html[data-theme="dark"] .warning-orange { background: #2a1500; border-color: #e65100; }
+html[data-theme="dark"] .warning-red    { background: #2a0000; border-color: #b71c1c; }
+html[data-theme="dark"] .pinned-header td { background: #1e1b00; color: #ffd54f; }
+html[data-theme="dark"] .precip-bar { background: #64b5f6; }
+html[data-theme="dark"] #toast { background: #444; }
+html[data-theme="dark"] .about-page a { color: #90caf9; }
+html[data-theme="dark"] .settings-btn { background: #2a2a2a; border-color: var(--border); }
+html[data-theme="dark"] .settings-btn-sm { background: #2a2a2a; border-color: var(--border); }
+html[data-theme="dark"] .settings-btn-danger { background: #3b0000; border-color: #7f0000; color: #ff8a80; }
+html[data-theme="dark"] .settings-input,
+html[data-theme="dark"] .settings-select { background: #1e1e1e; border-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .geocode-result-list li:hover { background: #1e1e1e; }
+html[data-theme="dark"] .import-label { background: #2a2a2a; border-color: var(--border); }
+
+/* Applied when: user has explicitly chosen light (ensure light vars override dark media query) */
+html[data-theme="light"] { color-scheme: light; }
