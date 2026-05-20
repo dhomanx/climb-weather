@@ -231,8 +231,7 @@ footer {
   z-index: 1;
   min-width: 90px;
   width: 90px;
-  white-space: normal;
-  word-break: break-word;
+  white-space: normal;  
   overflow-wrap: break-word;
 }
 
