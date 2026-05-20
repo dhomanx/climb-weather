@@ -327,7 +327,7 @@ async function runGeocode() {
         ${sorted.map((r, i) => `
           <li>
             <label>
-              <input type="radio" name="geocode-pick" value="${i}" data-result='${JSON.stringify({ lat: r.latitude, lon: r.longitude, elevation: r.elevation ?? '', name: r.name, county: deriveCounty(r) })}'>
+              <input type="radio" name="geocode-pick" value="${i}" data-result='${JSON.stringify({ lat: r.latitude, lon: r.longitude, elevation: r.elevation ?? '', name: r.name, county: deriveCounty(r), region: deriveRegion(r) })}'>
               ${r.name}${r.admin1 ? `, ${r.admin1}` : ''}${r.country ? `, ${r.country}` : ''}
               <span class="loc-county">(${r.latitude.toFixed(3)}, ${r.longitude.toFixed(3)})</span>
             </label>
@@ -344,7 +344,7 @@ async function runGeocode() {
         document.getElementById('cf-name').value = r.name;
         document.getElementById('cf-aspect').value = '';
         document.getElementById('cf-rock').value = '';
-        document.getElementById('cf-region').value = '';
+        document.getElementById('cf-region').value = r.region || '';
         const countySelect = document.getElementById('cf-county');
         countySelect.value = r.county && [...countySelect.options].some(o => o.value === r.county) ? r.county : '';
         document.getElementById('custom-fields').hidden = false;
@@ -357,16 +357,34 @@ async function runGeocode() {
 
 function irelandScore(r) {
   if (r.country === 'Ireland') return 0;
-  const admin1 = (r.admin1 ?? '').replace(/^County\s+/i, '').trim();
-  if (r.country === 'United Kingdom' && NI_COUNTIES.has(admin1)) return 1;
+  if (r.country === 'United Kingdom') {
+    const a1 = (r.admin1 ?? '').replace(/^County\s+/i, '').trim();
+    const a2 = (r.admin2 ?? '').replace(/^County\s+/i, '').trim();
+    if (a1 === 'Northern Ireland' || NI_COUNTIES.has(a1) || NI_COUNTIES.has(a2)) return 1;
+  }
   return 2;
 }
 
-function deriveCounty(geocodeResult) {
-  // Try to match admin1 (e.g. "County Galway") to our county list
+function deriveRegion(geocodeResult) {
+  // For Republic of Ireland, admin1 is the province (Leinster/Munster/Connacht/Ulster)
   const admin1 = geocodeResult.admin1 ?? '';
-  const stripped = admin1.replace(/^County\s+/i, '').trim();
-  return IRISH_COUNTIES.includes(stripped) ? stripped : '';
+  if (REGIONS.includes(admin1)) return admin1;
+  if (admin1 === 'Northern Ireland') return 'Ulster';
+  // Fallback: check admin2 in case structure varies
+  const admin2 = geocodeResult.admin2 ?? '';
+  if (REGIONS.includes(admin2)) return admin2;
+  return '';
+}
+
+function deriveCounty(geocodeResult) {
+  // For Republic of Ireland, admin1 = province and admin2 = county ("County Wexford")
+  // For NI, admin1 may be "Northern Ireland" and admin2 the county
+  const candidates = [geocodeResult.admin2 ?? '', geocodeResult.admin1 ?? ''];
+  for (const c of candidates) {
+    const stripped = c.replace(/^County\s+/i, '').trim();
+    if (IRISH_COUNTIES.includes(stripped)) return stripped;
+  }
+  return '';
 }
 
 function saveCustomLocation() {
